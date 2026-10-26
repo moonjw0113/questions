@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "bank": {
+    "id": "example-multiple_choice",
+    "title": "생명과학 I · 세포와 물질대사",
+    "subject": "생명과학",
+    "unit": "세포와 물질대사"
+  },
+  "questions": [
+    {
+      "id": "bio-001",
+      "type": "multiple_choice",
+      "topic": "세포 소기관",
+      "difficulty": 1,
+      "prompt": "세포 호흡을 통해 생명 활동에 필요한 ATP를 주로 생성하는 세포 소기관은?",
+      "options": [
+        {
+          "id": "A",
+          "text": "리보솜"
+        },
+        {
+          "id": "B",
+          "text": "미토콘드리아"
+        },
+        {
+          "id": "C",
+          "text": "골지체"
+        },
+        {
+          "id": "D",
+          "text": "핵"
+        }
+      ],
+      "answer": {
+        "option_id": "B"
+      },
+      "explanation": "미토콘드리아는 세포 호흡이 일어나는 주요 장소로, 유기물의 화학 에너지를 ATP 형태로 전환합니다.",
+      "tags": [
+        "세포 소기관",
+        "미토콘드리아"
+      ]
+    }
+  ]
+}

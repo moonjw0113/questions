@@ -1,0 +1,121 @@
+{
+  "schema_version": "1.0",
+  "bank": {
+    "id": "biology-cells-01",
+    "title": "생명과학 I · 세포와 물질대사",
+    "subject": "생명과학",
+    "unit": "세포와 물질대사"
+  },
+  "questions": [
+    {
+      "id": "bio-001",
+      "type": "multiple_choice",
+      "topic": "세포 소기관",
+      "difficulty": 1,
+      "prompt": "세포 호흡을 통해 생명 활동에 필요한 ATP를 주로 생성하는 세포 소기관은?",
+      "options": [
+        {
+          "id": "A",
+          "text": "리보솜"
+        },
+        {
+          "id": "B",
+          "text": "미토콘드리아"
+        },
+        {
+          "id": "C",
+          "text": "골지체"
+        },
+        {
+          "id": "D",
+          "text": "핵"
+        }
+      ],
+      "answer": {
+        "option_id": "B"
+      },
+      "explanation": "미토콘드리아는 세포 호흡이 일어나는 주요 장소로, 유기물의 화학 에너지를 ATP 형태로 전환합니다.",
+      "tags": [
+        "세포 소기관",
+        "미토콘드리아"
+      ]
+    },
+    {
+      "id": "bio-002",
+      "type": "short_answer",
+      "topic": "효소의 작용",
+      "difficulty": 1,
+      "prompt": "효소는 화학 반응에 필요한 어떤 에너지를 낮추어 반응 속도를 빠르게 하는가?",
+      "answer": {
+        "accepted": [
+          "활성화 에너지",
+          "활성화에너지",
+          "activation energy"
+        ]
+      },
+      "explanation": "효소는 활성화 에너지를 낮추는 생체 촉매입니다. 반응 전후의 전체 에너지 차이를 바꾸지는 않습니다.",
+      "tags": [
+        "효소",
+        "활성화 에너지"
+      ]
+    },
+    {
+      "id": "bio-003",
+      "type": "fill_blank",
+      "topic": "물질대사",
+      "difficulty": 2,
+      "prompt": "작은 분자로 큰 분자를 합성하는 반응은 {{1}} 작용이며, 큰 분자를 작은 분자로 분해하는 반응은 {{2}} 작용이다.",
+      "answer": {
+        "blanks": [
+          {
+            "id": "1",
+            "accepted": [
+              "동화"
+            ]
+          },
+          {
+            "id": "2",
+            "accepted": [
+              "이화"
+            ]
+          }
+        ]
+      },
+      "explanation": "동화 작용은 에너지를 흡수하며 복잡한 물질을 합성하고, 이화 작용은 물질을 분해하며 에너지를 방출합니다.",
+      "tags": [
+        "물질대사",
+        "동화 작용",
+        "이화 작용"
+      ]
+    },
+    {
+      "id": "bio-006",
+      "type": "fill_blank",
+      "topic": "ATP",
+      "difficulty": 2,
+      "prompt": "ATP가 분해되면 {{1}}와 무기 인산이 생성되며, 이때 {{2}}가 방출된다.",
+      "answer": {
+        "blanks": [
+          {
+            "id": "1",
+            "accepted": [
+              "ADP",
+              "아데노신 이인산"
+            ]
+          },
+          {
+            "id": "2",
+            "accepted": [
+              "에너지"
+            ]
+          }
+        ]
+      },
+      "explanation": "ATP의 인산 결합이 가수 분해되면 ADP와 무기 인산이 만들어지며 에너지가 방출됩니다.",
+      "tags": [
+        "ATP",
+        "에너지"
+      ]
+    }
+  ]
+}

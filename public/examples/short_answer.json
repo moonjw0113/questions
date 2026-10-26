@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "bank": {
+    "id": "example-short_answer",
+    "title": "생명과학 I · 세포와 물질대사",
+    "subject": "생명과학",
+    "unit": "세포와 물질대사"
+  },
+  "questions": [
+    {
+      "id": "bio-002",
+      "type": "short_answer",
+      "topic": "효소의 작용",
+      "difficulty": 1,
+      "prompt": "효소는 화학 반응에 필요한 어떤 에너지를 낮추어 반응 속도를 빠르게 하는가?",
+      "answer": {
+        "accepted": [
+          "활성화 에너지",
+          "활성화에너지",
+          "activation energy"
+        ]
+      },
+      "explanation": "효소는 활성화 에너지를 낮추는 생체 촉매입니다. 반응 전후의 전체 에너지 차이를 바꾸지는 않습니다.",
+      "tags": [
+        "효소",
+        "활성화 에너지"
+      ]
+    }
+  ]
+}

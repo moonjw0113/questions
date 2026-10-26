@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "bank": {
+    "id": "example-fill_blank",
+    "title": "생명과학 I · 세포와 물질대사",
+    "subject": "생명과학",
+    "unit": "세포와 물질대사"
+  },
+  "questions": [
+    {
+      "id": "bio-003",
+      "type": "fill_blank",
+      "topic": "물질대사",
+      "difficulty": 2,
+      "prompt": "작은 분자로 큰 분자를 합성하는 반응은 {{1}} 작용이며, 큰 분자를 작은 분자로 분해하는 반응은 {{2}} 작용이다.",
+      "answer": {
+        "blanks": [
+          {
+            "id": "1",
+            "accepted": [
+              "동화"
+            ]
+          },
+          {
+            "id": "2",
+            "accepted": [
+              "이화"
+            ]
+          }
+        ]
+      },
+      "explanation": "동화 작용은 에너지를 흡수하며 복잡한 물질을 합성하고, 이화 작용은 물질을 분해하며 에너지를 방출합니다.",
+      "tags": [
+        "물질대사",
+        "동화 작용",
+        "이화 작용"
+      ]
+    }
+  ]
+}

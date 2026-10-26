@@ -1,0 +1,664 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://chagok.local/study-result.schema.json",
+  "title": "차곡 study_result v1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "generated_at",
+    "time_zone",
+    "scope",
+    "scoring",
+    "summary",
+    "statistics",
+    "weak_concepts",
+    "additional_study_topics",
+    "question_mastery",
+    "questions",
+    "frequent_errors",
+    "recent_results"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "type": {
+      "const": "study_result"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "time_zone": {
+      "const": "Asia/Seoul"
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "period",
+        "subject",
+        "unit"
+      ],
+      "properties": {
+        "period": {
+          "enum": [
+            "all",
+            "7",
+            "30",
+            "wrong"
+          ]
+        },
+        "subject": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      }
+    },
+    "scoring": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempts",
+        "accuracy",
+        "recent_accuracy"
+      ],
+      "properties": {
+        "attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "accuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "recent_accuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "by_subject",
+        "by_unit",
+        "by_type"
+      ],
+      "properties": {
+        "by_subject": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "attempts",
+              "accuracy"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "attempts": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "accuracy": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            }
+          }
+        },
+        "by_unit": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "attempts",
+              "accuracy"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "attempts": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "accuracy": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            }
+          }
+        },
+        "by_type": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "attempts",
+              "accuracy"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "attempts": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "accuracy": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            }
+          }
+        }
+      }
+    },
+    "weak_concepts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "attempts",
+          "accuracy"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "accuracy": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      }
+    },
+    "additional_study_topics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "question_mastery": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bank_id",
+          "question_id",
+          "mastery",
+          "next_due",
+          "total_attempts",
+          "recent_scores"
+        ],
+        "properties": {
+          "bank_id": {
+            "type": "string"
+          },
+          "question_id": {
+            "type": "string"
+          },
+          "mastery": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "next_due": {
+            "type": "string"
+          },
+          "total_attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "recent_scores": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bank_id",
+          "subject",
+          "unit",
+          "internal_version",
+          "question"
+        ],
+        "properties": {
+          "bank_id": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "internal_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "question": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "type",
+                  "topic",
+                  "difficulty",
+                  "prompt",
+                  "explanation",
+                  "tags",
+                  "options",
+                  "answer"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_-]{1,100}$"
+                  },
+                  "type": {
+                    "const": "multiple_choice"
+                  },
+                  "topic": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "pattern": "\\S"
+                  },
+                  "difficulty": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "pattern": "\\S"
+                  },
+                  "explanation": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "pattern": "\\S"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 10000,
+                      "pattern": "\\S"
+                    }
+                  },
+                  "options": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 10,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "text"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-zA-Z0-9_-]{1,100}$"
+                        },
+                        "text": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 10000,
+                          "pattern": "\\S"
+                        }
+                      }
+                    }
+                  },
+                  "answer": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "option_id"
+                    ],
+                    "properties": {
+                      "option_id": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{1,100}$"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "type",
+                  "topic",
+                  "difficulty",
+                  "prompt",
+                  "explanation",
+                  "tags",
+                  "answer"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_-]{1,100}$"
+                  },
+                  "type": {
+                    "const": "short_answer"
+                  },
+                  "topic": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "pattern": "\\S"
+                  },
+                  "difficulty": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "pattern": "\\S"
+                  },
+                  "explanation": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "pattern": "\\S"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 10000,
+                      "pattern": "\\S"
+                    }
+                  },
+                  "answer": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "accepted"
+                    ],
+                    "properties": {
+                      "accepted": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 30,
+                        "uniqueItems": true,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 10000,
+                          "pattern": "\\S"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "type",
+                  "topic",
+                  "difficulty",
+                  "prompt",
+                  "explanation",
+                  "tags",
+                  "answer"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_-]{1,100}$"
+                  },
+                  "type": {
+                    "const": "fill_blank"
+                  },
+                  "topic": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "pattern": "\\S"
+                  },
+                  "difficulty": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "pattern": "\\S"
+                  },
+                  "explanation": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "pattern": "\\S"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 10000,
+                      "pattern": "\\S"
+                    }
+                  },
+                  "answer": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "blanks"
+                    ],
+                    "properties": {
+                      "blanks": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 20,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "id",
+                            "accepted"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[1-9][0-9]*$"
+                            },
+                            "accepted": {
+                              "type": "array",
+                              "minItems": 1,
+                              "maxItems": 30,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 10000,
+                                "pattern": "\\S"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "frequent_errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bank_id",
+          "question_id",
+          "wrong_count"
+        ],
+        "properties": {
+          "bank_id": {
+            "type": "string"
+          },
+          "question_id": {
+            "type": "string"
+          },
+          "wrong_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "recent_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bank_id",
+          "question_id",
+          "internal_version",
+          "answered_at",
+          "user_answer",
+          "model_answers",
+          "score",
+          "is_correct",
+          "is_partial",
+          "manual_override",
+          "duration_ms",
+          "mode",
+          "cumulative_attempts"
+        ],
+        "properties": {
+          "bank_id": {
+            "type": "string"
+          },
+          "question_id": {
+            "type": "string"
+          },
+          "internal_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "answered_at": {
+            "type": "string"
+          },
+          "user_answer": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "model_answers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "is_correct": {
+            "type": "boolean"
+          },
+          "is_partial": {
+            "type": "boolean"
+          },
+          "manual_override": {
+            "type": "boolean"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 604800000
+          },
+          "mode": {
+            "enum": [
+              "learn",
+              "review",
+              "exam"
+            ]
+          },
+          "cumulative_attempts": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    }
+  }
+}
