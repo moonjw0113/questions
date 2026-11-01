@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { BookOpen, Check, ChevronRight, Send } from 'lucide-react';
 import { supabase } from '../data/supabase';
 import { useApp } from '../state/AppContext';
 
@@ -13,6 +14,7 @@ export function SharedBanks() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [subject, setSubject] = useState('');
 
   const reload = useCallback(async () => {
     if (!supabase || demo || !user) return;
@@ -51,6 +53,12 @@ export function SharedBanks() {
   }, [reload, demo, user?.id]);
 
   if (demo || !user || !data) return null;
+  const subjects = [...new Set(data.banks.map((b) => b.subject))].sort((a, b) =>
+    a.localeCompare(b, 'ko'),
+  );
+  const visibleBanks = data.banks.filter((b) => !subject || b.subject === subject);
+  const allVisibleSelected =
+    visibleBanks.length > 0 && visibleBanks.every((b) => banks.includes(b.id));
   async function send() {
     if (!supabase || !banks.length || !email.trim()) return;
     setSending(true);
@@ -118,54 +126,105 @@ export function SharedBanks() {
             <p className="muted">받은 문제은행이 없어요.</p>
           )}
           {admin && (
-            <div className="notice">
-              <strong>관리자 · 문제은행 보내기</strong>
-              <p>이메일 인증을 완료한 가입자에게 현재 문제은행을 보냅니다.</p>
+            <div className="sharing-admin">
+              <div className="sharing-admin-heading">
+                <span className="sharing-admin-icon">
+                  <Send size={19} />
+                </span>
+                <div>
+                  <span className="sharing-eyebrow">관리자</span>
+                  <h3>문제은행 보내기</h3>
+                  <p>과목별로 문제를 고르고, 함께 공부할 친구에게 보내요.</p>
+                </div>
+              </div>
               <fieldset className="sharing-banks" disabled={sending}>
-                <legend>문제은행 선택 ({banks.length}개)</legend>
+                <legend>
+                  보낼 문제 선택 <span>{banks.length}개 선택</span>
+                </legend>
                 {data.banks.length ? (
                   <>
-                    <button
-                      type="button"
-                      className="text-link"
-                      onClick={() =>
-                        setBanks(
-                          banks.length === data.banks.length ? [] : data.banks.map((b) => b.id),
-                        )
-                      }
-                    >
-                      {banks.length === data.banks.length ? '전체 선택 해제' : '전체 선택'}
-                    </button>
-                    {data.banks.map((b) => (
-                      <label className="sharing-bank-option" key={b.id}>
-                        <input
-                          type="checkbox"
-                          checked={banks.includes(b.id)}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setBanks((selected) =>
-                              checked ? [...selected, b.id] : selected.filter((id) => id !== b.id),
-                            );
-                          }}
-                        />
-                        <span>
-                          {b.title}
-                          <br />
-                          <small>
-                            {b.subject} · {b.unit}
-                          </small>
-                        </span>
-                      </label>
-                    ))}
+                    <div className="sharing-subjects" aria-label="과목 필터">
+                      {[
+                        { name: '', label: '전체' },
+                        ...subjects.map((name) => ({ name, label: name })),
+                      ].map((s) => (
+                        <button
+                          type="button"
+                          key={s.name}
+                          className={`sharing-subject ${subject === s.name ? 'active' : ''}`}
+                          aria-pressed={subject === s.name}
+                          onClick={() => setSubject(s.name)}
+                        >
+                          {s.label}{' '}
+                          <span>
+                            {s.name
+                              ? data.banks.filter((b) => b.subject === s.name).length
+                              : data.banks.length}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="sharing-list-heading">
+                      <span>
+                        {subject || '전체 과목'} · {visibleBanks.length}개
+                      </span>
+                      <button
+                        type="button"
+                        className="text-link"
+                        onClick={() =>
+                          setBanks((selected) =>
+                            allVisibleSelected
+                              ? selected.filter((id) => !visibleBanks.some((b) => b.id === id))
+                              : [...new Set([...selected, ...visibleBanks.map((b) => b.id)])],
+                          )
+                        }
+                      >
+                        {allVisibleSelected ? '선택 해제' : '이 과목 전체 선택'}
+                      </button>
+                    </div>
+                    <div className="sharing-bank-list">
+                      {visibleBanks.map((b) => (
+                        <label
+                          className={`sharing-bank-option ${banks.includes(b.id) ? 'selected' : ''}`}
+                          key={b.id}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={banks.includes(b.id)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setBanks((selected) =>
+                                checked
+                                  ? [...selected, b.id]
+                                  : selected.filter((id) => id !== b.id),
+                              );
+                            }}
+                          />
+                          <span className="sharing-book-icon">
+                            <BookOpen size={18} />
+                          </span>
+                          <span className="sharing-bank-info">
+                            <strong>{b.title}</strong>
+                            <small>
+                              {b.subject} <ChevronRight size={12} /> {b.unit} ·{' '}
+                              {data.entries.filter((e) => e.bankId === b.id && !e.archived).length}
+                              문제
+                            </small>
+                          </span>
+                          <span className="sharing-check" aria-hidden="true">
+                            <Check size={14} />
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </>
                 ) : (
                   <p>먼저 문제은행을 가져와 주세요.</p>
                 )}
               </fieldset>
-              <p>
+              <div className="sharing-recipient">
                 <label>
                   받는 사람 이메일
-                  <br />
                   <input
                     className="sharing-input"
                     type="email"
@@ -174,7 +233,8 @@ export function SharedBanks() {
                     placeholder="student@example.com"
                   />
                 </label>
-              </p>
+                <small>가입 후 이메일 인증을 완료한 사용자를 입력해 주세요.</small>
+              </div>
               <button
                 className="button primary"
                 disabled={busy || sending || !banks.length || !email.trim()}
