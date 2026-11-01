@@ -23,7 +23,8 @@ export function filterQuestions(d: AppData, f: Filters, now = Date.now()): Quest
       .sort((a, b) => b.answeredAt.localeCompare(a.answeredAt))[0];
     return (
       (!f.subject || q.subject === f.subject) &&
-      (!f.unit || q.unit === f.unit) &&
+      (!f.units.length ||
+        f.units.some((unit) => unit.subject === q.subject && unit.unit === q.unit)) &&
       (!f.type || q.type === f.type) &&
       (!f.difficulty || q.difficulty === Number(f.difficulty)) &&
       (f.scope !== 'wrong' || Boolean(last && last.score < 1)) &&

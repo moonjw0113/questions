@@ -4434,6 +4434,125 @@ strong {
     scroll-behavior: auto !important;
   }
 }
+
+/* A checklist keeps selecting several units comfortable on phones and keyboards. */
+.unit-filter {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.unit-filter-dropdown {
+  position: relative;
+}
+.unit-filter-dropdown[open] {
+  z-index: 10;
+}
+.unit-filter-dropdown summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 45px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+.unit-filter-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+.unit-filter-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max(100%, 260px);
+  max-width: min(340px, calc(100vw - 54px));
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 30px #1e332d22;
+}
+.unit-filter-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ink);
+}
+.unit-filter-menu-header button {
+  color: var(--green);
+  font-size: 11px;
+  min-height: 36px;
+  padding: 4px 2px;
+  white-space: nowrap;
+}
+.unit-filter-menu p {
+  color: var(--muted);
+  font-size: 10px;
+  margin: 2px 0 10px;
+}
+.unit-filter-list {
+  max-height: 230px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.unit-filter-list fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.unit-filter-list legend {
+  padding: 8px 0 2px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.unit-filter-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 5px 3px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+}
+.unit-filter-option input {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--green);
+  flex-shrink: 0;
+}
+.unit-filter-empty {
+  display: block;
+  padding: 12px 2px;
+}
+.unit-filter-done {
+  min-height: 38px;
+  margin-top: 10px;
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  .unit-filter-menu {
+    left: auto;
+    right: 0;
+  }
+}
 @media (max-width: 760px) {
   .today-hero {
     display: block;

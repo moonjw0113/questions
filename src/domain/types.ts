@@ -152,7 +152,7 @@ export interface AttemptInput {
 }
 export interface Filters {
   subject: string;
-  unit: string;
+  units: { subject: string; unit: string }[];
   type: string;
   difficulty: string;
   scope: 'all' | 'wrong' | 'due' | 'favorite';
@@ -160,7 +160,7 @@ export interface Filters {
 }
 export const emptyFilters: Filters = {
   subject: '',
-  unit: '',
+  units: [],
   type: '',
   difficulty: '',
   scope: 'all',

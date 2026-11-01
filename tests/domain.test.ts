@@ -10,9 +10,14 @@ import {
   toImportQuestion,
 } from '../src/domain/import';
 import { scheduleReview } from '../src/domain/review';
-import { createSession, shuffle } from '../src/domain/study';
+import { createSession, filterQuestions, shuffle } from '../src/domain/study';
 import { analysisExport, dayKey, getStats } from '../src/domain/statistics';
-import { defaultSettings, type QuestionBank, type AppData } from '../src/domain/types';
+import {
+  defaultSettings,
+  emptyFilters,
+  type QuestionBank,
+  type AppData,
+} from '../src/domain/types';
 import { DemoRepository, validateBackup } from '../src/data/repository';
 const example = JSON.parse(readFileSync('public/examples/biology.json', 'utf8')) as QuestionBank;
 const empty = (): AppData => ({
@@ -120,6 +125,46 @@ describe('보수적인 채점', () => {
   });
 });
 describe('복습과 학습 범위', () => {
+  it('여러 단원을 과목과 함께 선택하고 같은 이름의 다른 과목 단원은 구별', () => {
+    const d = empty();
+    const questions = [
+      { ...normalized.questions[0], id: 'a', subject: '과학', unit: '1단원' },
+      { ...normalized.questions[0], id: 'b', subject: '과학', unit: '2단원' },
+      { ...normalized.questions[0], id: 'c', subject: '과학', unit: '3단원' },
+      { ...normalized.questions[0], id: 'd', subject: '국어', unit: '1단원' },
+    ];
+    d.versions = questions.map((question) => ({ bankId: 'test', question }));
+    d.entries = questions.map((q) => ({
+      id: q.id,
+      bankId: 'test',
+      currentVersion: q.version,
+      favorite: false,
+      archived: false,
+      report: '',
+    }));
+    expect(filterQuestions(d, emptyFilters).map((q) => q.id)).toEqual(['a', 'b', 'c', 'd']);
+    const selected = {
+      ...emptyFilters,
+      units: [
+        { subject: '과학', unit: '1단원' },
+        { subject: '과학', unit: '2단원' },
+      ],
+    };
+    expect(filterQuestions(d, selected).map((q) => q.id)).toEqual(['a', 'b']);
+    expect(
+      createSession(d, filterQuestions(d, selected), 'exam', 10)
+        .queue.map((q) => q.id)
+        .sort(),
+    ).toEqual(['a', 'b']);
+    expect(filterQuestions(d, { ...selected, subject: '국어' })).toEqual([]);
+    expect(
+      filterQuestions(d, {
+        ...emptyFilters,
+        subject: '국어',
+        units: [{ subject: '국어', unit: '1단원' }],
+      }).map((q) => q.id),
+    ).toEqual(['d']);
+  });
   it('오답 10분, 연속 정답 간격 증가, 재오답 감소', () => {
     const at = '2026-10-26T00:00:00Z';
     const wrong = scheduleReview(undefined, 0, at, 'standard', 'q');

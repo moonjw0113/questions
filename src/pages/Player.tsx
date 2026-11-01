@@ -225,9 +225,7 @@ function QuestionPlayer({
         </div>
         <Progress value={((s.index + (graded ? 1 : 0)) / s.queue.length) * 100} />
         <div className="question-toolbar">
-          <span>
-            {q.subject} <span className="muted">/</span> {q.unit}
-          </span>
+          <span>{q.subject}</span>
           <div>
             <button
               className={`icon-button ${d!.entries.find((e) => e.id === q.id)?.favorite ? 'favorited' : ''}`}
@@ -281,7 +279,6 @@ function QuestionPlayer({
           <div className="question-labels">
             <span className="badge green">{typeLabels[q.type]}</span>
             <span className="badge neutral">{['', '기본', '보통', '심화'][q.difficulty]}</span>
-            <span className="question-topic">{q.topic}</span>
           </div>
           <span className="question-number">QUESTION {String(s.index + 1).padStart(2, '0')}</span>
           <h1>
@@ -423,11 +420,6 @@ function QuestionPlayer({
               )}
             </div>
           )}
-          <div className="question-tags">
-            {q.tags.map((t) => (
-              <span key={t}>#{t}</span>
-            ))}
-          </div>
         </section>
         <div className="player-bottom">
           {s.mode === 'exam' ? (
