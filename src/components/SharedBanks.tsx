@@ -8,7 +8,7 @@ export function SharedBanks() {
   const { data, demo, user, perform, notify, busy } = useApp();
   const [admin, setAdmin] = useState(false);
   const [items, setItems] = useState<SharedBank[]>([]);
-  const [bank, setBank] = useState('');
+  const [banks, setBanks] = useState<string[]>([]);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -52,24 +52,27 @@ export function SharedBanks() {
 
   if (demo || !user || !data) return null;
   async function send() {
-    if (!supabase || !bank || !email.trim()) return;
+    if (!supabase || !banks.length || !email.trim()) return;
     setSending(true);
+    const sent: string[] = [];
     try {
-      const { error: e } = await supabase.rpc('share_study_bank', {
-        p_bank_id: bank,
-        p_email: email.trim(),
-      });
-      if (e) notify(e.message, true);
-      else {
-        notify('문제은행을 보냈어요. 상대방이 문제은행 화면에서 받을 수 있습니다.');
-        setEmail('');
+      for (const bank of banks) {
+        const { error: e } = await supabase.rpc('share_study_bank', {
+          p_bank_id: bank,
+          p_email: email.trim(),
+        });
+        if (e) throw new Error(e.message);
+        sent.push(bank);
       }
+      notify(`문제은행 ${sent.length}개를 보냈어요. 상대방이 문제은행 화면에서 받을 수 있습니다.`);
+      setEmail('');
     } catch (e) {
       notify(
-        e instanceof Error ? e.message : '문제를 보내지 못했습니다. 다시 시도해 주세요.',
+        `${sent.length}개 전송 완료. ${e instanceof Error ? e.message : '문제를 보내지 못했습니다.'} 남은 문제은행을 다시 보내 주세요.`,
         true,
       );
     } finally {
+      setBanks((selected) => selected.filter((id) => !sent.includes(id)));
       setSending(false);
     }
   }
@@ -118,22 +121,47 @@ export function SharedBanks() {
             <div className="notice">
               <strong>관리자 · 문제은행 보내기</strong>
               <p>이메일 인증을 완료한 가입자에게 현재 문제은행을 보냅니다.</p>
-              <label>
-                문제은행 선택
-                <br />
-                <select
-                  className="sharing-input"
-                  value={bank}
-                  onChange={(e) => setBank(e.target.value)}
-                >
-                  <option value="">선택해 주세요</option>
-                  {data.banks.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.title} · {b.subject} · {b.unit}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <fieldset className="sharing-banks" disabled={sending}>
+                <legend>문제은행 선택 ({banks.length}개)</legend>
+                {data.banks.length ? (
+                  <>
+                    <button
+                      type="button"
+                      className="text-link"
+                      onClick={() =>
+                        setBanks(
+                          banks.length === data.banks.length ? [] : data.banks.map((b) => b.id),
+                        )
+                      }
+                    >
+                      {banks.length === data.banks.length ? '전체 선택 해제' : '전체 선택'}
+                    </button>
+                    {data.banks.map((b) => (
+                      <label className="sharing-bank-option" key={b.id}>
+                        <input
+                          type="checkbox"
+                          checked={banks.includes(b.id)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setBanks((selected) =>
+                              checked ? [...selected, b.id] : selected.filter((id) => id !== b.id),
+                            );
+                          }}
+                        />
+                        <span>
+                          {b.title}
+                          <br />
+                          <small>
+                            {b.subject} · {b.unit}
+                          </small>
+                        </span>
+                      </label>
+                    ))}
+                  </>
+                ) : (
+                  <p>먼저 문제은행을 가져와 주세요.</p>
+                )}
+              </fieldset>
               <p>
                 <label>
                   받는 사람 이메일
@@ -149,10 +177,10 @@ export function SharedBanks() {
               </p>
               <button
                 className="button primary"
-                disabled={busy || sending || !bank || !email.trim()}
+                disabled={busy || sending || !banks.length || !email.trim()}
                 onClick={() => void send()}
               >
-                {sending ? '보내는 중…' : '문제 보내기'}
+                {sending ? '보내는 중…' : `문제은행 ${banks.length}개 보내기`}
               </button>
             </div>
           )}
