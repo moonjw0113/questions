@@ -10,10 +10,45 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
     [tab, setTab] = useState<'file' | 'text'>('file'),
     [filename, setFilename] = useState(''),
     [drag, setDrag] = useState(false),
-    [readError, setReadError] = useState('');
+    [readError, setReadError] = useState(''),
+    [batch, setBatch] = useState<{ name: string; text: string }[]>([]);
   const parsed = useMemo(() => (text ? parseBank(text) : { errors: [] }), [text]);
   const preview = parsed.bank && data ? inspectImport(parsed.bank, data) : null;
   const errors = [...parsed.errors, ...(preview?.errors || []), ...(readError ? [readError] : [])];
+  const batchParsed = useMemo(
+    () => batch.map((file) => ({ name: file.name, ...parseBank(file.text) })),
+    [batch],
+  );
+  const batchErrors = batchParsed.flatMap((item) => [
+    ...item.errors.map((error) => `${item.name}: ${error}`),
+    ...(item.bank && data
+      ? inspectImport(item.bank, data).errors.map((error) => `${item.name}: ${error}`)
+      : []),
+  ]);
+  async function readFiles(files: FileList) {
+    const selected = Array.from(files);
+    if (selected.length <= 1) {
+      setBatch([]);
+      await read(selected[0]);
+      return;
+    }
+    setText('');
+    setFilename('');
+    setReadError('');
+    if (selected.some((f) => f.size > 10 * 1024 * 1024)) {
+      setBatch([]);
+      setReadError('각 파일은 10MB 이하여야 합니다.');
+      return;
+    }
+    try {
+      setBatch(
+        await Promise.all(selected.map(async (f) => ({ name: f.name, text: await f.text() }))),
+      );
+    } catch {
+      setBatch([]);
+      setReadError('파일을 읽지 못했습니다. 다시 선택해 주세요.');
+    }
+  }
   async function read(file?: File) {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
@@ -29,6 +64,33 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
     }
   }
   async function save() {
+    if (batch.length) {
+      if (batchErrors.length || readError) return;
+      const completed: string[] = [];
+      const ok = await perform(async (r) => {
+        let added = 0,
+          updated = 0,
+          skipped = 0;
+        for (const item of batchParsed) {
+          try {
+            const result = await r.importBank(item.bank!);
+            added += result.added;
+            updated += result.updated;
+            skipped += result.skipped;
+            completed.push(item.name);
+          } catch (e) {
+            throw new Error(
+              `${item.name} 저장 실패: ${e instanceof Error ? e.message : String(e)}. 이미 저장된 파일 ${completed.length}개는 유지됩니다. 다시 시도하면 중복은 제외됩니다.`,
+            );
+          }
+        }
+        notify(
+          `파일 ${completed.length}개 저장 · 새 문제 ${added}개 · 새 버전 ${updated}개 · 중복 제외 ${skipped}개`,
+        );
+      });
+      if (ok) onClose();
+      return;
+    }
     if (!parsed.bank || errors.length) return;
     const ok = await perform(async (r) => {
       const result = await r.importBank(parsed.bank!);
@@ -46,7 +108,13 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
           <FileJson size={17} />
           JSON 파일
         </button>
-        <button className={tab === 'text' ? 'active' : ''} onClick={() => setTab('text')}>
+        <button
+          className={tab === 'text' ? 'active' : ''}
+          onClick={() => {
+            setTab('text');
+            setBatch([]);
+          }}
+        >
           <Clipboard size={17} />
           텍스트 붙여넣기
         </button>
@@ -62,18 +130,26 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
           onDrop={(e) => {
             e.preventDefault();
             setDrag(false);
-            void read(e.dataTransfer.files[0]);
+            void readFiles(e.dataTransfer.files);
           }}
         >
           <span className="upload-icon">
             <Upload size={28} />
           </span>
-          <strong>{filename || '파일을 선택하거나 이곳에 놓아 주세요'}</strong>
-          <span>JSON 파일 · 최대 10MB · 최대 2,000문제</span>
+          <strong>
+            {batch.length
+              ? `${batch.length}개 파일 선택됨`
+              : filename || '파일을 선택하거나 이곳에 놓아 주세요'}
+          </strong>
+          <span>여러 JSON 파일 선택 가능 · 파일당 최대 10MB · 최대 2,000문제</span>
           <input
             type="file"
+            multiple
             accept=".json,application/json"
-            onChange={(e) => void read(e.target.files?.[0])}
+            onChange={(e) => {
+              if (e.target.files) void readFiles(e.target.files);
+              e.target.value = '';
+            }}
           />
           <span className="button secondary">파일 선택</span>
         </label>
@@ -102,6 +178,37 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
           JSON 스키마
         </a>
       </div>
+      {batch.length > 0 && (
+        <div className="import-preview">
+          <strong>
+            선택한 파일 {batch.length}개 · 총{' '}
+            {batchParsed.reduce((n, item) => n + (item.bank?.questions.length || 0), 0)}문제
+          </strong>
+          <ul>
+            {batchParsed.map((item, i) => (
+              <li key={i}>
+                {item.name}:{' '}
+                {item.bank
+                  ? `${item.bank.bank.title} · ${item.bank.questions.length}문제`
+                  : '형식 오류'}
+              </li>
+            ))}
+          </ul>
+          <p className="notice">
+            파일은 순서대로 저장됩니다. 일부 저장 후 오류가 나면 다시 시도할 수 있습니다.
+          </p>
+        </div>
+      )}
+      {batchErrors.length > 0 && (
+        <div className="error-box" role="alert">
+          <strong>파일을 확인해 주세요</strong>
+          <ul>
+            {batchErrors.map((error, i) => (
+              <li key={i}>{error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {errors.length > 0 && (
         <div className="error-box" role="alert">
           <strong>
@@ -161,10 +268,19 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
         </button>
         <button
           className="button primary"
-          disabled={busy || !parsed.bank || errors.length > 0}
+          disabled={
+            busy ||
+            (batch.length
+              ? batchErrors.length > 0 || Boolean(readError)
+              : !parsed.bank || errors.length > 0)
+          }
           onClick={() => void save()}
         >
-          {busy ? '저장 중…' : `문제 ${parsed.bank?.questions.length || 0}개 가져오기`}
+          {busy
+            ? '저장 중…'
+            : batch.length
+              ? `파일 ${batch.length}개 가져오기`
+              : `문제 ${parsed.bank?.questions.length || 0}개 가져오기`}
         </button>
       </div>
     </Modal>

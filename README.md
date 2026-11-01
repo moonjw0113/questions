@@ -55,24 +55,51 @@ Supabase 설정이 유효하면 로그인/회원가입 화면이 먼저 열립�
 ```json
 {
   "schema_version": "1.0",
-  "bank": { "id": "biology-cell-01", "title": "세포 핵심 개념", "subject": "생명과학", "unit": "세포와 물질대사" },
+  "bank": {
+    "id": "biology-cell-01",
+    "title": "세포 핵심 개념",
+    "subject": "생명과학",
+    "unit": "세포와 물질대사"
+  },
   "questions": [
     {
-      "id": "q1", "type": "multiple_choice", "topic": "세포 소기관", "difficulty": 1,
+      "id": "q1",
+      "type": "multiple_choice",
+      "topic": "세포 소기관",
+      "difficulty": 1,
       "prompt": "세포 호흡이 일어나는 주요 소기관은?",
-      "options": [{ "id": "A", "text": "미토콘드리아" }, { "id": "B", "text": "리보솜" }],
-      "answer": { "option_id": "A" }, "explanation": "미토콘드리아에서 세포 호흡이 일어납니다.", "tags": ["미토콘드리아"]
+      "options": [
+        { "id": "A", "text": "미토콘드리아" },
+        { "id": "B", "text": "리보솜" }
+      ],
+      "answer": { "option_id": "A" },
+      "explanation": "미토콘드리아에서 세포 호흡이 일어납니다.",
+      "tags": ["미토콘드리아"]
     },
     {
-      "id": "q2", "type": "short_answer", "topic": "효소", "difficulty": 1,
-      "prompt": "효소가 낮추는 에너지는?", "answer": { "accepted": ["활성화 에너지", "activation energy"] },
-      "explanation": "효소는 활성화 에너지를 낮추어 반응 속도를 높입니다.", "tags": ["효소", "활성화 에너지"]
+      "id": "q2",
+      "type": "short_answer",
+      "topic": "효소",
+      "difficulty": 1,
+      "prompt": "효소가 낮추는 에너지는?",
+      "answer": { "accepted": ["활성화 에너지", "activation energy"] },
+      "explanation": "효소는 활성화 에너지를 낮추어 반응 속도를 높입니다.",
+      "tags": ["효소", "활성화 에너지"]
     },
     {
-      "id": "q3", "type": "fill_blank", "topic": "물질대사", "difficulty": 2,
+      "id": "q3",
+      "type": "fill_blank",
+      "topic": "물질대사",
+      "difficulty": 2,
       "prompt": "합성하는 반응은 {{1}} 작용, 분해하는 반응은 {{2}} 작용이다.",
-      "answer": { "blanks": [{ "id": "1", "accepted": ["동화"] }, { "id": "2", "accepted": ["이화"] }] },
-      "explanation": "동화는 합성, 이화는 분해입니다.", "tags": ["물질대사"]
+      "answer": {
+        "blanks": [
+          { "id": "1", "accepted": ["동화"] },
+          { "id": "2", "accepted": ["이화"] }
+        ]
+      },
+      "explanation": "동화는 합성, 이화는 분해입니다.",
+      "tags": ["물질대사"]
     }
   ]
 }
@@ -96,16 +123,16 @@ DB의 `questions.id`는 UUID입니다. 외부 문제의 식별자는 `(user_id, 
 
 ## 데이터와 복습 설계
 
-| 테이블 | 역할 |
-| --- | --- |
-| profiles | 사용자 설정 |
-| subjects / units | 사용자가 만든 과목·단원 |
-| question_banks | 외부 은행 ID와 과목·단원 |
-| questions | 내부 UUID, 외부 문제 ID, 현재 버전, 즐겨찾기·오류 메모·삭제 상태 |
-| question_versions | 불변 문제 원본 JSON과 정규화된 내부 스냅샷 |
-| study_sessions | 문제 순서·선택지 순서·입력 초안·시간·진행 위치·revision |
-| answer_attempts | 답변·서버 채점·부분 점수·수동 채점·모드·시간·누적 횟수 |
-| review_progress | SM-2 기반 회상 숙련도와 다음 복습 시각 |
+| 테이블            | 역할                                                             |
+| ----------------- | ---------------------------------------------------------------- |
+| profiles          | 사용자 설정                                                      |
+| subjects / units  | 사용자가 만든 과목·단원                                          |
+| question_banks    | 외부 은행 ID와 과목·단원                                         |
+| questions         | 내부 UUID, 외부 문제 ID, 현재 버전, 즐겨찾기·오류 메모·삭제 상태 |
+| question_versions | 불변 문제 원본 JSON과 정규화된 내부 스냅샷                       |
+| study_sessions    | 문제 순서·선택지 순서·입력 초안·시간·진행 위치·revision          |
+| answer_attempts   | 답변·서버 채점·부분 점수·수동 채점·모드·시간·누적 횟수           |
+| review_progress   | SM-2 기반 회상 숙련도와 다음 복습 시각                           |
 
 모든 테이블은 사용자별 RLS와 소유자 포함 복합 외래 키를 사용합니다. 일반 사용자는 자기 행 조회와 즐겨찾기·삭제·오류 메모 수정만 직접 할 수 있습니다. 문제 가져오기, 답안 저장, 복원은 로그인 사용자 ID를 서버에서 결정하는 RPC를 사용합니다. 임의 user_id, 점수, 누적 횟수, 복습 일정을 신뢰하지 않습니다. 서버가 정답 데이터로 점수를 계산합니다. 한 세션·문제·버전당 답안은 한 개여서 재시도에 따른 중복 기록을 차단합니다. DB에서 사용자 소유 행 전체를 하나의 스냅샷 RPC로 가져와 통계를 계산하므로 PostgREST 기본 1,000행 제한으로 통계가 잘리지 않습니다.
 
@@ -120,6 +147,20 @@ DB의 `questions.id`는 UUID입니다. 외부 문제의 식별자는 `(user_id, 
 전체 백업은 별도 `type: "chagok_backup"`, `schema_version: "1.0"`, `data` 구조입니다. 모든 문제 버전·세션·답안·복습·설정이 들어가고 사용자 인증정보는 제외합니다. 복원은 서버 트랜잭션으로 기존 데이터와 병합하고 중복을 제외합니다. 동일 문제 버전 또는 세션이 충돌하면 전체 작업을 취소하므로 기록을 조용히 덮어쓰지 않습니다. 백업 설정도 복원됩니다. 최대 50MB, 20,000개 문제 버전, 100,000개 풀이 기록입니다.
 
 ## GitHub Pages 배포
+
+### 관리자 문제 공유 설정
+
+기존 프로젝트의 데이터와 풀이 기록을 유지하면서 Supabase SQL Editor에서 `supabase/admin-sharing.sql`을 한 번 실행합니다. 새 프로젝트라면 먼저 `supabase/init.sql`을 실행합니다. 이후 앱에 관리자 본인이 회원가입 및 이메일 인증을 완료하고, SQL Editor에서 다음을 실행합니다. 이메일을 관리자 계정의 이메일로 바꾸세요.
+
+```sql
+insert into public.study_admins (user_id)
+select id from auth.users where lower(email) = lower('관리자이메일@example.com')
+on conflict do nothing;
+```
+
+일치하는 가입자가 없으면 권한이 부여되지 않습니다. 관리자 계정으로 앱에 로그인해 문제은행을 가져온 다음, 문제은행 화면의 관리자 영역에서 문제은행과 이메일 인증을 마친 수신자의 이메일을 입력하여 보냅니다. 수신자는 문제은행 화면에서 직접 가져옵니다. 전송 시점의 현재 문제를 복사하며, 나중에 원본을 수정해도 자동 반영되지 않습니다. 같은 ID의 문제는 기존 가져오기 규칙에 따라 중복을 제외하거나 새 버전으로 저장하므로 이전 풀이 기록을 유지합니다. 받는 사람에게 동일 ID의 다른 문제은행이 있고 과목이나 단원이 다르면 충돌을 알리고 가져오지 않습니다. 문제 공유 목록을 새로 확인하려면 문제은행 화면을 다시 여세요. 관리자 권한은 Supabase에서만 부여하고 브라우저에서 변경할 수 없습니다.
+
+문제 가져오기 화면에서 여러 JSON 파일을 한 번에 선택하거나 끌어놓을 수 있습니다. 각 파일은 기존 v1.0 형식이어야 하며, 순서대로 저장합니다. 도중에 실패한 경우 이미 저장된 파일은 유지되며 다시 시도하면 중복은 제외됩니다.
 
 1. 이 폴더를 GitHub 저장소의 `main` 브랜치에 올립니다.
 2. Settings → Secrets and variables → Actions → **Variables**에 다음 공개 값을 등록합니다.
@@ -154,5 +195,6 @@ tests/            도메인 테스트와 PostgreSQL 통합 테스트
 공개 스키마·예제·프롬프트는 단일 원본이며 Vite의 작은 가상 모듈에서 앱에 임베드합니다. 공개 스키마 생성용 유지보수 스크립트는 `scripts/`에 있습니다. 고정 외부 규격 변경은 명시적인 새 schema_version 없이 진행하지 마세요.
 
 참고: [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [Supabase JavaScript RPC](https://supabase.com/docs/reference/javascript/rpc), [Vite GitHub Pages 배포](https://vite.dev/guide/static-deploy.html#github-pages).
-#   q u e s t i o n s  
+#   q u e s t i o n s 
+ 
  

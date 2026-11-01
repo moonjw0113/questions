@@ -20,9 +20,11 @@ const load = () => rpc('load_study_data') as Promise<AppData>;
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(
-    `create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key); insert into auth.users values('${user}'),('${other}'); create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$; grant usage on schema auth to authenticated,anon; grant execute on function auth.uid() to authenticated,anon;`,
+    `create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz); insert into auth.users values('${user}','admin@example.com',now()),('${other}','student@example.com',now()); create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$; grant usage on schema auth to authenticated,anon; grant execute on function auth.uid() to authenticated,anon;`,
   );
   await db.exec(readFileSync('supabase/init.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/admin-sharing.sql', 'utf8'));
+  await db.exec(`insert into public.study_admins(user_id) values ('${user}')`);
   await db.exec(
     `set role authenticated; select set_config('request.jwt.claim.sub','${user}',false);`,
   );
@@ -238,5 +240,42 @@ describe('Supabase PostgreSQL contract', () => {
     expect(d.versions).toHaveLength(backup.versions.length);
     expect(d.attempts.map((a) => a.answeredAt)).toEqual(backup.attempts.map((a) => a.answeredAt));
     await db.exec(`select set_config('request.jwt.claim.sub','${user}',false);`);
+  });
+  it('only administrators can share and only the intended user can receive a snapshot', async () => {
+    const bank = structuredClone(example);
+    bank.bank.id = 'shared-test';
+    await rpc('import_question_bank', bank);
+    const send = () =>
+      db.query<{ id: string }>(
+        "select public.share_study_bank('shared-test', 'student@example.com') id",
+      );
+    const id = (await send()).rows[0].id;
+    expect((await send()).rows[0].id).toBe(id);
+    await expect(
+      db.query('select public.receive_shared_study_bank($1::uuid)', [id]),
+    ).rejects.toThrow();
+    expect(
+      (await db.query<{ result: unknown[] }>('select public.list_shared_study_banks() result'))
+        .rows[0].result,
+    ).toHaveLength(0);
+    await db.exec(`select set_config('request.jwt.claim.sub','${other}',false)`);
+    await expect(send()).rejects.toThrow('관리자만');
+    expect(
+      (await db.query<{ result: unknown[] }>('select public.list_shared_study_banks() result'))
+        .rows[0].result,
+    ).toHaveLength(1);
+    expect(
+      (
+        await db.query<{ result: { added: number } }>(
+          'select public.receive_shared_study_bank($1::uuid) result',
+          [id],
+        )
+      ).rows[0].result.added,
+    ).toBe(4);
+    await expect(
+      db.query('select public.receive_shared_study_bank($1::uuid)', [id]),
+    ).rejects.toThrow();
+    expect((await load()).banks.some((b) => b.id === 'shared-test')).toBe(true);
+    await db.exec(`select set_config('request.jwt.claim.sub','${user}',false)`);
   });
 });

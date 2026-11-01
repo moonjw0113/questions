@@ -16,6 +16,7 @@ import { filterQuestions } from '../domain/study';
 import { parseBank, toImportQuestion } from '../domain/import';
 import { modelAnswers } from '../domain/grading';
 import { QuestionFilters } from '../components/QuestionFilters';
+import { SharedBanks } from '../components/SharedBanks';
 import { Empty, Modal, subjectColor } from '../components/ui';
 export function Bank({
   upload,
@@ -50,6 +51,7 @@ export function Bank({
           문제 가져오기
         </button>
       </div>
+      <SharedBanks />
       <div className="bank-summary-grid">
         {d.banks.map((b) => (
           <button
