@@ -26,6 +26,7 @@ import {
 import { completedSentence, modelAnswers } from '../domain/grading';
 import { percentage } from '../domain/statistics';
 import { createSession } from '../domain/study';
+import { readDraft, writeDraft } from '../domain/draft';
 import { Empty, Progress } from '../components/ui';
 export function Player({
   id,
@@ -71,13 +72,28 @@ function QuestionPlayer({
   q: Question;
   onExit: () => void;
 }) {
-  const { data: d, perform, busy, demo } = useApp();
+  const { data: d, perform, advanceSession, busy, demo, user } = useApp();
   const key = questionKey(q),
     saved = s.answers[key] || [];
-  const autoSaved = useRef('');
-  const [answer, setAnswer] = useState<string[]>(saved),
+  const draftKey = `chagok-draft:${demo ? 'demo' : user?.id}:${s.id}:${key}`;
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      /* storage may be unavailable */
+    }
+  };
+  const [answer, setAnswer] = useState<string[]>(() => {
+      try {
+        return readDraft(localStorage, draftKey, saved) || saved;
+      } catch {
+        /* use the server answer */
+      }
+      return saved;
+    }),
     [report, setReport] = useState(false),
-    [reportText, setReportText] = useState('');
+    [reportText, setReportText] = useState(''),
+    [submitting, setSubmitting] = useState(false);
   const attempt = d!.attempts.find(
     (a) => a.sessionId === s.id && a.questionId === q.id && a.questionVersion === q.version,
   );
@@ -108,21 +124,13 @@ function QuestionPlayer({
     durations: { ...s.durations, [key]: elapsed() },
   });
   useEffect(() => {
-    const signature = `${s.revision}:${JSON.stringify(answer)}`;
-    if (
-      graded ||
-      busy ||
-      JSON.stringify(saved) === JSON.stringify(answer) ||
-      autoSaved.current === signature ||
-      (!demo && !navigator.onLine)
-    )
-      return;
-    const t = setTimeout(() => {
-      autoSaved.current = signature;
-      void perform((r) => r.commitSession(build()));
-    }, 1100);
-    return () => clearTimeout(t);
-  }, [JSON.stringify(answer), s.revision, busy, graded]);
+    try {
+      if (graded) localStorage.removeItem(draftKey);
+      else writeDraft(localStorage, draftKey, saved, answer);
+    } catch {
+      /* the unload warning still protects an unsaved answer */
+    }
+  }, [draftKey, JSON.stringify(answer), JSON.stringify(saved), graded]);
   useEffect(() => {
     const before = (e: BeforeUnloadEvent) => {
       if (JSON.stringify(saved) !== JSON.stringify(answer)) {
@@ -134,6 +142,7 @@ function QuestionPlayer({
   }, [JSON.stringify(saved), JSON.stringify(answer)]);
   async function submit(value = answer) {
     if (busy) return;
+    setSubmitting(true);
     const updated = build(value);
     setAnswer(value);
     const input: AttemptInput = {
@@ -143,16 +152,23 @@ function QuestionPlayer({
       answer: value,
       durationMs: updated.durations[key],
     };
-    await perform((r) => r.commitSession(updated, [input]));
+    const ok = await perform((r) => r.commitSession(updated, [input]));
+    if (ok) clearDraft();
+    setSubmitting(false);
   }
   async function pause() {
+    if (busy) return;
+    setSubmitting(true);
     if (
       await perform(
         (r) => r.commitSession(build()),
         '학습 위치를 저장했어요. 언제든 이어서 공부할 수 있어요.',
       )
-    )
+    ) {
+      clearDraft();
       onExit();
+    }
+    setSubmitting(false);
   }
   async function next(direction = 1) {
     const next = build();
@@ -173,8 +189,9 @@ function QuestionPlayer({
               };
             })
           : [];
-      await perform((r) => r.commitSession(next, inputs), '학습을 모두 마쳤어요. 수고했어요!');
-    } else await perform((r) => r.commitSession(next));
+      if (await perform((r) => r.commitSession(next, inputs), '학습을 모두 마쳤어요. 수고했어요!'))
+        clearDraft();
+    } else if (await advanceSession(next, s)) clearDraft();
   }
   async function correctManually() {
     if (!attempt) return;
@@ -338,7 +355,7 @@ function QuestionPlayer({
                     aria-label="단답형 답안"
                     placeholder="기억나는 답을 적어 보세요"
                     value={answer[0] || ''}
-                    disabled={graded || busy}
+                    disabled={graded || submitting}
                     autoComplete="off"
                     onChange={(e) => setAnswer([e.target.value])}
                   />
@@ -357,7 +374,7 @@ function QuestionPlayer({
                         aria-label={`${b.id}번 빈칸 답안`}
                         placeholder={`${b.id}번 빈칸의 답`}
                         value={answer[i] || ''}
-                        disabled={graded || busy}
+                        disabled={graded || submitting}
                         autoComplete="off"
                         onChange={(e) => {
                           const a = q.blanks.map((_, index) => answer[index] || '');

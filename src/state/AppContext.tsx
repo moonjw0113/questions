@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { type AppData } from '../domain/types';
+import { type AppData, type StudySession } from '../domain/types';
 import { DemoRepository, SupabaseRepository, type Repository } from '../data/repository';
 import { configured, supabase } from '../data/supabase';
 interface AppContextValue {
@@ -21,6 +21,7 @@ interface AppContextValue {
   message: { text: string; error: boolean } | null;
   repo: Repository;
   perform: (action: (repo: Repository) => Promise<unknown>, success?: string) => Promise<boolean>;
+  advanceSession: (session: StudySession, previous: StudySession) => Promise<boolean>;
   refresh: () => Promise<void>;
   enterDemo: () => void;
   leaveDemo: () => void;
@@ -120,6 +121,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [repo, refresh, notify],
   );
+  const advanceSession = useCallback(
+    async (session: StudySession, previous: StudySession) => {
+      if (locked.current) return false;
+      locked.current = true;
+      generation.current++;
+      setBusy(true);
+      setData((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          sessions: current.sessions.map((item) => (item.id === session.id ? session : item)),
+        };
+      });
+      try {
+        await repo.commitSession(session);
+        setData(
+          (current) =>
+            current && {
+              ...current,
+              sessions: current.sessions.map((item) =>
+                item.id === session.id
+                  ? { ...item, revision: session.revision + 1, updatedAt: new Date().toISOString() }
+                  : item,
+              ),
+            },
+        );
+        return true;
+      } catch (e) {
+        setData(
+          (current) =>
+            current && {
+              ...current,
+              sessions: current.sessions.map((item) => (item.id === session.id ? previous : item)),
+            },
+        );
+        notify(
+          e instanceof Error ? e.message : '진행 위치를 저장하지 못했습니다. 다시 시도해 주세요.',
+          true,
+        );
+        return false;
+      } finally {
+        locked.current = false;
+        setBusy(false);
+      }
+    },
+    [repo, notify],
+  );
   return (
     <Context.Provider
       value={{
@@ -131,6 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         message,
         repo,
         perform,
+        advanceSession,
         refresh,
         enterDemo: () => setDemo(true),
         leaveDemo: () => setDemo(false),
