@@ -1,15 +1,6 @@
+import { ManageCards } from '../components/ManageCards';
 import { useState } from 'react';
-import {
-  Plus,
-  FolderOpen,
-  Star,
-  Flag,
-  Pencil,
-  Trash2,
-  ArchiveRestore,
-  FileJson,
-  ArrowUpRight,
-} from 'lucide-react';
+import { Plus, Star, Flag, Pencil, Trash2, ArchiveRestore, FileJson } from 'lucide-react';
 import { useApp } from '../state/AppContext';
 import { emptyFilters, type Question, type QuestionBank, typeLabels } from '../domain/types';
 import { filterQuestions } from '../domain/study';
@@ -27,7 +18,7 @@ export function Bank({
 }) {
   const { data: d, perform, busy } = useApp();
   const [filters, setFilters] = useState({ ...emptyFilters, search: initialSearch }),
-    [bankId, setBankId] = useState(''),
+    [selected, setSelected] = useState<string[]>([]),
     [detail, setDetail] = useState<Question | null>(null),
     [edit, setEdit] = useState<Question | null>(null),
     [deleting, setDeleting] = useState<Question | null>(null),
@@ -35,7 +26,8 @@ export function Bank({
     [limit, setLimit] = useState(30);
   if (!d) return null;
   const list = filterQuestions(d, filters).filter(
-    (q) => !bankId || d.entries.find((e) => e.id === q.id)?.bankId === bankId,
+    (q) =>
+      !selected.length || selected.includes(d.entries.find((e) => e.id === q.id)?.bankId || ''),
   );
   const archived = d.entries.filter((e) => e.archived);
   return (
@@ -52,48 +44,28 @@ export function Bank({
         </button>
       </div>
       <SharedBanks />
-      {bankId && (
-        <button
-          className="button danger"
-          disabled={busy}
-          onClick={() => {
-            if (
-              window.confirm(
-                '이 세트의 모든 문제를 학습 목록에서 제거할까요? 풀이 기록은 유지되며 삭제한 문제에서 복구할 수 있습니다.',
-              )
-            )
-              void perform((r) => r.archiveBank(bankId), '세트의 문제를 제거했어요.').then((ok) => {
-                if (ok) setBankId('');
-              });
-          }}
-        >
-          선택한 세트 문제 제거
-        </button>
-      )}
-      <div className="bank-summary-grid">
-        {d.banks.map((b) => (
-          <button
-            key={b.id}
-            className={`bank-card panel ${bankId === b.id ? 'selected' : ''}`}
-            onClick={() => {
-              setBankId(bankId === b.id ? '' : b.id);
-              setLimit(30);
-            }}
-          >
-            <span className={`subject-icon ${subjectColor(b.subject)}`}>
-              <FolderOpen size={23} />
-            </span>
-            <div>
-              <small>
-                {b.subject} · {b.unit}
-              </small>
-              <h3>{b.title}</h3>
-              <p>{d.entries.filter((e) => e.bankId === b.id && !e.archived).length}문제</p>
-            </div>
-            <ArrowUpRight size={17} />
-          </button>
-        ))}
-      </div>
+      <ManageCards
+        title="문제 세트"
+        items={d.banks.map((b) => ({
+          id: b.id,
+          title: b.title,
+          detail:
+            b.subject +
+            ' · ' +
+            b.unit +
+            ' · ' +
+            d.entries.filter((e) => e.bankId === b.id && !e.archived).length +
+            '문제',
+        }))}
+        selected={selected}
+        onSelect={(ids) => {
+          setSelected(ids);
+          setLimit(30);
+        }}
+        remove={(r, id) => r.archiveBank(id)}
+        action="세트 문제 제거"
+        warning="세트의 모든 문제를 학습 목록에서 제거합니다. 삭제한 문제에서 복구할 수 있어요."
+      />
       <section className="panel bank-content">
         <QuestionFilters
           value={filters}
@@ -106,8 +78,8 @@ export function Bank({
         <div className="question-list-heading">
           <strong>
             {list.length}개의 문제{' '}
-            {bankId && (
-              <button className="text-link" onClick={() => setBankId('')}>
+            {selected.length > 0 && (
+              <button className="text-link" onClick={() => setSelected([])}>
                 문제은행 선택 해제
               </button>
             )}

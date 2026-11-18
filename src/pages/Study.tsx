@@ -1,5 +1,6 @@
+import { ManageCards } from '../components/ManageCards';
 import { useState } from 'react';
-import { BookOpen, RotateCcw, Timer, ArrowRight, Shuffle, Play } from 'lucide-react';
+import { BookOpen, RotateCcw, Timer, ArrowRight, Shuffle } from 'lucide-react';
 import { Context, useApp } from '../state/AppContext';
 import { createSession, filterQuestions } from '../domain/study';
 import { emptyFilters, type Filters, type StudyMode, modeLabels } from '../domain/types';
@@ -18,6 +19,8 @@ export function Study({
   onStart: (id: string) => void;
   upload: () => void;
 }) {
+  const [active, setActive] = useState<string[]>([]),
+    [completed, setCompleted] = useState<string[]>([]);
   const app = useApp();
   const { data: d, perform, busy } = app;
   const [practice, setPractice] = useState(false);
@@ -76,14 +79,6 @@ export function Study({
       { id: 'review' as const, icon: RotateCcw, description: '기억이 약한 문제부터 다시 만나요.' },
       { id: 'exam' as const, icon: Timer, description: '모두 푼 뒤 결과를 확인해요.' },
     ];
-  function removeSession(id: string) {
-    if (
-      window.confirm(
-        '이 학습의 풀이 기록과 이어풀기를 삭제할까요? 복습 일정과 통계에도 반영됩니다.',
-      )
-    )
-      void perform((r) => r.deleteSession(id), '학습 기록을 삭제했어요.');
-  }
   async function start() {
     if (!d || !questions.length) return;
     const session = createSession(d, questions, mode, Math.min(count, questions.length));
@@ -179,50 +174,30 @@ export function Study({
           />
         )}
       </section>
-      <section className="session-list">
-        <h2>이어서 학습하기</h2>
-        {d.sessions
-          .filter((s) => s.status === 'active')
-          .map((s) => (
-            <div key={s.id}>
-              <button className="session-row panel" onClick={() => onStart(s.id)}>
-                <span className="metric-icon green">
-                  <Play size={18} />
-                </span>
-                <div>
-                  <strong>{modeLabels[s.mode]}</strong>
-                  <small>
-                    {Math.min(s.index + 1, s.queue.length)} / {s.queue.length}문제 ·{' '}
-                    {new Date(s.startedAt).toLocaleDateString('ko-KR')}
-                  </small>
-                </div>
-                <ArrowRight size={18} />
-              </button>
-              <button className="text-link" disabled={busy} onClick={() => removeSession(s.id)}>
-                이어풀기 삭제
-              </button>
-            </div>
-          ))}
-        {!d.sessions.some((s) => s.status === 'active') && (
-          <p className="muted">진행 중인 학습이 없어요. 새로운 공부를 시작해 보세요.</p>
-        )}
-      </section>
-      <details className="session-list">
-        <summary>완료한 학습 기록 관리</summary>
-        {d.sessions
-          .filter((s) => s.status === 'completed')
-          .map((s) => (
-            <div className="session-row panel" key={s.id}>
-              <span>
-                {new Date(s.startedAt).toLocaleString('ko-KR')} · {modeLabels[s.mode]} ·{' '}
-                {s.queue.length}문제
-              </span>
-              <button className="text-link" disabled={busy} onClick={() => removeSession(s.id)}>
-                기록 삭제
-              </button>
-            </div>
-          ))}
-      </details>
+      {(['active', 'completed'] as const).map((status) => (
+        <ManageCards
+          key={status}
+          title={status === 'active' ? '이어서 학습하기' : '완료한 학습 기록'}
+          items={d.sessions
+            .filter((s) => s.status === status)
+            .map((s) => ({
+              id: s.id,
+              title: modeLabels[s.mode],
+              detail:
+                new Date(s.startedAt).toLocaleString('ko-KR') +
+                ' · ' +
+                (status === 'active' ? Math.min(s.index + 1, s.queue.length) + ' / ' : '') +
+                s.queue.length +
+                '문제',
+            }))}
+          selected={status === 'active' ? active : completed}
+          onSelect={status === 'active' ? setActive : setCompleted}
+          onOpen={status === 'active' ? onStart : undefined}
+          remove={(r, id) => r.deleteSession(id)}
+          action="기록 삭제"
+          warning="선택한 학습의 풀이 기록이 삭제되고 통계와 복습 일정에 반영됩니다."
+        />
+      ))}
     </div>
   );
 }
