@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { BookOpen, RotateCcw, Timer, ArrowRight, Shuffle, Play } from 'lucide-react';
-import { useApp } from '../state/AppContext';
+import { Context, useApp } from '../state/AppContext';
 import { createSession, filterQuestions } from '../domain/study';
 import { emptyFilters, type Filters, type StudyMode, modeLabels } from '../domain/types';
 import { QuestionFilters } from '../components/QuestionFilters';
+import { DemoRepository } from '../data/repository';
+import { Player } from './Player';
 import { Empty } from '../components/ui';
 export function Study({
   initialSubject = '',
@@ -16,7 +18,12 @@ export function Study({
   onStart: (id: string) => void;
   upload: () => void;
 }) {
-  const { data: d, perform, busy } = useApp();
+  const app = useApp();
+  const { data: d, perform, busy } = app;
+  const [practice, setPractice] = useState(false);
+  const [temporary, setTemporary] = useState<DemoRepository | null>(null);
+  const [snapshot, setSnapshot] = useState(d);
+  const [sessionId, setSessionId] = useState('');
   const [mode, setMode] = useState<StudyMode>(initialReview ? 'review' : 'learn'),
     [filters, setFilters] = useState<Filters>({
       ...emptyFilters,
@@ -25,15 +32,69 @@ export function Study({
     }),
     [count, setCount] = useState(10);
   if (!d) return null;
+  if (temporary && snapshot) {
+    const refresh = async () => setSnapshot(await temporary.load());
+    return (
+      <Context.Provider
+        value={{
+          ...app,
+          privateStudy: true,
+          data: snapshot,
+          repo: temporary,
+          refresh,
+          perform: async (action) => {
+            try {
+              await action(temporary);
+              await refresh();
+              return true;
+            } catch (e) {
+              app.notify(String(e), true);
+              return false;
+            }
+          },
+          advanceSession: async (session) => {
+            await temporary.commitSession(session);
+            await refresh();
+            return true;
+          },
+        }}
+      >
+        <Player
+          id={sessionId}
+          onStart={setSessionId}
+          onExit={() => {
+            setTemporary(null);
+            setSnapshot(null);
+          }}
+        />
+      </Context.Provider>
+    );
+  }
   const questions = filterQuestions(d, filters),
     modes = [
       { id: 'learn' as const, icon: BookOpen, description: '한 문제씩 확인하며 개념을 익혀요.' },
       { id: 'review' as const, icon: RotateCcw, description: '기억이 약한 문제부터 다시 만나요.' },
       { id: 'exam' as const, icon: Timer, description: '모두 푼 뒤 결과를 확인해요.' },
     ];
+  function removeSession(id: string) {
+    if (
+      window.confirm(
+        '이 학습의 풀이 기록과 이어풀기를 삭제할까요? 복습 일정과 통계에도 반영됩니다.',
+      )
+    )
+      void perform((r) => r.deleteSession(id), '학습 기록을 삭제했어요.');
+  }
   async function start() {
     if (!d || !questions.length) return;
     const session = createSession(d, questions, mode, Math.min(count, questions.length));
+    if (practice) {
+      const repo = new DemoRepository({ ...d, sessions: [], attempts: [], progress: [] });
+      await repo.commitSession(session);
+      setSnapshot(await repo.load());
+      setSessionId(session.id);
+      setTemporary(repo);
+      return;
+    }
     if (await perform((r) => r.commitSession(session))) onStart(session.id);
   }
   return (
@@ -87,6 +148,14 @@ export function Study({
                 : '문제·선택지 섞기는 설정에서 변경할 수 있어요.'}
           </p>
         </div>
+        <label>
+          <input
+            type="checkbox"
+            checked={practice}
+            onChange={(e) => setPractice(e.target.checked)}
+          />{' '}
+          무기록 학습 · 나가면 답안과 결과가 사라져요
+        </label>
         {questions.length ? (
           <div className="start-strip">
             <div>
@@ -115,24 +184,45 @@ export function Study({
         {d.sessions
           .filter((s) => s.status === 'active')
           .map((s) => (
-            <button className="session-row panel" key={s.id} onClick={() => onStart(s.id)}>
-              <span className="metric-icon green">
-                <Play size={18} />
-              </span>
-              <div>
-                <strong>{modeLabels[s.mode]}</strong>
-                <small>
-                  {Math.min(s.index + 1, s.queue.length)} / {s.queue.length}문제 ·{' '}
-                  {new Date(s.startedAt).toLocaleDateString('ko-KR')}
-                </small>
-              </div>
-              <ArrowRight size={18} />
-            </button>
+            <div key={s.id}>
+              <button className="session-row panel" onClick={() => onStart(s.id)}>
+                <span className="metric-icon green">
+                  <Play size={18} />
+                </span>
+                <div>
+                  <strong>{modeLabels[s.mode]}</strong>
+                  <small>
+                    {Math.min(s.index + 1, s.queue.length)} / {s.queue.length}문제 ·{' '}
+                    {new Date(s.startedAt).toLocaleDateString('ko-KR')}
+                  </small>
+                </div>
+                <ArrowRight size={18} />
+              </button>
+              <button className="text-link" disabled={busy} onClick={() => removeSession(s.id)}>
+                이어풀기 삭제
+              </button>
+            </div>
           ))}
         {!d.sessions.some((s) => s.status === 'active') && (
           <p className="muted">진행 중인 학습이 없어요. 새로운 공부를 시작해 보세요.</p>
         )}
       </section>
+      <details className="session-list">
+        <summary>완료한 학습 기록 관리</summary>
+        {d.sessions
+          .filter((s) => s.status === 'completed')
+          .map((s) => (
+            <div className="session-row panel" key={s.id}>
+              <span>
+                {new Date(s.startedAt).toLocaleString('ko-KR')} · {modeLabels[s.mode]} ·{' '}
+                {s.queue.length}문제
+              </span>
+              <button className="text-link" disabled={busy} onClick={() => removeSession(s.id)}>
+                기록 삭제
+              </button>
+            </div>
+          ))}
+      </details>
     </div>
   );
 }

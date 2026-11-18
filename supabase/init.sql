@@ -334,3 +334,21 @@ end $$;
 revoke all on function public.normalize_study_answer(text),public.validate_import_question(jsonb),public.import_question_bank(jsonb),public.grade_study_answer(jsonb,jsonb),public.rebuild_study_progress(uuid,uuid),public.commit_study_session(jsonb,jsonb),public.save_study_settings(jsonb),public.manage_study_subject(text,text,text),public.load_study_data(),public.restore_study_backup(jsonb) from public, anon, authenticated;
 grant execute on function public.import_question_bank(jsonb),public.commit_study_session(jsonb,jsonb),public.save_study_settings(jsonb),public.manage_study_subject(text,text,text),public.load_study_data(),public.restore_study_backup(jsonb) to authenticated;
 commit;
+begin;
+create or replace function public.delete_study_session(p_id uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+declare u uuid := auth.uid(); affected uuid[]; q uuid;
+begin
+  if u is null then raise exception '로그인 필요'; end if;
+  perform pg_advisory_xact_lock(hashtextextended(u::text,0));
+  select array_agg(distinct question_id) into affected from public.answer_attempts where user_id=u and session_id=p_id;
+  delete from public.answer_attempts where user_id=u and session_id=p_id;
+  delete from public.study_sessions where user_id=u and id=p_id;
+  foreach q in array coalesce(affected,'{}'::uuid[]) loop
+    delete from public.review_progress where user_id=u and question_id=q;
+    perform public.rebuild_study_progress(u,q);
+  end loop;
+end $$;
+revoke all on function public.delete_study_session(uuid) from public,anon;
+grant execute on function public.delete_study_session(uuid) to authenticated;
+commit;

@@ -17,6 +17,7 @@ interface AppContextValue {
   user: User | null;
   demo: boolean;
   loading: boolean;
+  privateStudy?: boolean;
   busy: boolean;
   message: { text: string; error: boolean } | null;
   repo: Repository;
@@ -27,7 +28,7 @@ interface AppContextValue {
   leaveDemo: () => void;
   notify: (text: string, error?: boolean) => void;
 }
-const Context = createContext<AppContextValue | null>(null);
+export const Context = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null),
     [demo, setDemo] = useState(!configured),

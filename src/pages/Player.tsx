@@ -72,11 +72,12 @@ function QuestionPlayer({
   q: Question;
   onExit: () => void;
 }) {
-  const { data: d, perform, advanceSession, busy, demo, user } = useApp();
+  const { data: d, perform, advanceSession, busy, demo, user, privateStudy } = useApp();
   const key = questionKey(q),
     saved = s.answers[key] || [];
   const draftKey = `chagok-draft:${demo ? 'demo' : user?.id}:${s.id}:${key}`;
   const clearDraft = () => {
+    if (privateStudy) return;
     try {
       localStorage.removeItem(draftKey);
     } catch {
@@ -84,6 +85,7 @@ function QuestionPlayer({
     }
   };
   const [answer, setAnswer] = useState<string[]>(() => {
+      if (privateStudy) return saved;
       try {
         return readDraft(localStorage, draftKey, saved) || saved;
       } catch {
@@ -124,6 +126,7 @@ function QuestionPlayer({
     durations: { ...s.durations, [key]: elapsed() },
   });
   useEffect(() => {
+    if (privateStudy) return;
     try {
       if (graded) localStorage.removeItem(draftKey);
       else writeDraft(localStorage, draftKey, saved, answer);
@@ -157,6 +160,10 @@ function QuestionPlayer({
     setSubmitting(false);
   }
   async function pause() {
+    if (privateStudy) {
+      onExit();
+      return;
+    }
     if (busy) return;
     setSubmitting(true);
     if (
@@ -229,7 +236,7 @@ function QuestionPlayer({
         <span className="player-mode">{modeLabels[s.mode]}</span>
         <button className="button ghost" disabled={busy} onClick={() => void pause()}>
           <Pause size={16} />
-          잠시 쉬기
+          {privateStudy ? '연습 종료' : '잠시 쉬기'}
         </button>
       </header>
       <main className="player-main">
@@ -459,7 +466,7 @@ function QuestionPlayer({
             <>
               <span className="muted">
                 <CheckCircle2 size={16} />
-                학습 기록을 저장했어요
+                {privateStudy ? '무기록 학습' : '학습 기록을 저장했어요'}
               </span>
               <button className="button primary" disabled={busy} onClick={() => void next()}>
                 {s.index === s.queue.length - 1 ? '학습 마치기' : '다음 문제'}

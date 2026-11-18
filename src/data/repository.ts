@@ -19,6 +19,8 @@ export interface ImportResult {
   skipped: number;
 }
 export interface Repository {
+  archiveBank(id: string): Promise<void>;
+  deleteSession(id: string): Promise<void>;
   load(): Promise<AppData>;
   importBank(bank: QuestionBank): Promise<ImportResult>;
   commitSession(session: StudySession, attempts?: AttemptInput[]): Promise<void>;
@@ -136,7 +138,9 @@ export function validateBackup(raw: unknown): AppData {
 }
 export class DemoRepository implements Repository {
   private key = 'chagok-demo-v1';
+  constructor(private memory?: AppData) {}
   private read(): AppData {
+    if (this.memory) return structuredClone(this.memory);
     const raw = localStorage.getItem(this.key);
     if (raw) {
       try {
@@ -150,7 +154,23 @@ export class DemoRepository implements Repository {
     return demoData();
   }
   private write(d: AppData) {
+    if (this.memory) {
+      this.memory = d;
+      return;
+    }
     localStorage.setItem(this.key, JSON.stringify(d));
+  }
+  async archiveBank(id: string) {
+    const d = this.read();
+    for (const e of d.entries) if (e.bankId === id) e.archived = true;
+    this.write(d);
+  }
+  async deleteSession(id: string) {
+    const d = this.read();
+    d.sessions = d.sessions.filter((s) => s.id !== id);
+    d.attempts = d.attempts.filter((a) => a.sessionId !== id);
+    this.rebuild(d);
+    this.write(d);
   }
   async load() {
     const d = this.read();
@@ -383,6 +403,16 @@ async function rpc(name: string, params: Record<string, unknown>) {
   return data;
 }
 export class SupabaseRepository implements Repository {
+  async archiveBank(id: string) {
+    const { error } = await supabase!
+      .from('questions')
+      .update({ archived: true })
+      .eq('bank_id', id);
+    if (error) throw Error(error.message);
+  }
+  async deleteSession(id: string) {
+    await rpc('delete_study_session', { p_id: id });
+  }
   async load(): Promise<AppData> {
     // A transactional snapshot avoids mixed statistics across multiple REST pages.
     return (await rpc('load_study_data', {})) as AppData;

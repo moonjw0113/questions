@@ -52,6 +52,24 @@ export function Bank({
         </button>
       </div>
       <SharedBanks />
+      {bankId && (
+        <button
+          className="button danger"
+          disabled={busy}
+          onClick={() => {
+            if (
+              window.confirm(
+                '이 세트의 모든 문제를 학습 목록에서 제거할까요? 풀이 기록은 유지되며 삭제한 문제에서 복구할 수 있습니다.',
+              )
+            )
+              void perform((r) => r.archiveBank(bankId), '세트의 문제를 제거했어요.').then((ok) => {
+                if (ok) setBankId('');
+              });
+          }}
+        >
+          선택한 세트 문제 제거
+        </button>
+      )}
       <div className="bank-summary-grid">
         {d.banks.map((b) => (
           <button
