@@ -19,7 +19,7 @@ export interface ImportResult {
   skipped: number;
 }
 export interface Repository {
-  archiveBank(id: string): Promise<void>;
+  purgeContent(bank: string, question?: string): Promise<void>;
   deleteSession(id: string): Promise<void>;
   load(): Promise<AppData>;
   importBank(bank: QuestionBank): Promise<ImportResult>;
@@ -160,9 +160,32 @@ export class DemoRepository implements Repository {
     }
     localStorage.setItem(this.key, JSON.stringify(d));
   }
-  async archiveBank(id: string) {
+  async purgeContent(bank: string, question?: string) {
     const d = this.read();
-    for (const e of d.entries) if (e.bankId === id) e.archived = true;
+    const ids = new Set(
+      d.entries
+        .filter((e) => e.bankId === bank && (!question || e.id === question))
+        .map((e) => e.id),
+    );
+    d.entries = d.entries.filter((e) => !ids.has(e.id));
+    d.versions = d.versions.filter((v) => !ids.has(v.question.id));
+    d.attempts = d.attempts.filter((a) => !ids.has(a.questionId));
+    if (!d.entries.some((e) => e.bankId === bank)) d.banks = d.banks.filter((b) => b.id !== bank);
+    for (const s of d.sessions) {
+      if (!s.queue.some((q) => ids.has(q.id))) continue;
+      const index = s.queue.slice(0, s.index).filter((q) => !ids.has(q.id)).length;
+      for (const q of s.queue.filter((q) => ids.has(q.id))) {
+        const key = q.id + '@' + q.version;
+        delete s.answers[key];
+        delete s.durations[key];
+        delete s.choiceOrders[key];
+      }
+      s.queue = s.queue.filter((q) => !ids.has(q.id));
+      s.index = s.status === 'completed' ? s.queue.length : Math.min(index, s.queue.length - 1);
+      s.revision++;
+    }
+    d.sessions = d.sessions.filter((s) => s.queue.length);
+    this.rebuild(d);
     this.write(d);
   }
   async deleteSession(id: string) {
@@ -403,12 +426,8 @@ async function rpc(name: string, params: Record<string, unknown>) {
   return data;
 }
 export class SupabaseRepository implements Repository {
-  async archiveBank(id: string) {
-    const { error } = await supabase!
-      .from('questions')
-      .update({ archived: true })
-      .eq('bank_id', id);
-    if (error) throw Error(error.message);
+  async purgeContent(bank: string, question?: string) {
+    await rpc('purge_study_content', { p_bank: bank, p_question: question ?? null });
   }
   async deleteSession(id: string) {
     await rpc('delete_study_session', { p_id: id });

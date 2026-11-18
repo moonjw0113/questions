@@ -1,6 +1,6 @@
 import { ManageCards } from '../components/ManageCards';
 import { useState } from 'react';
-import { Plus, Star, Flag, Pencil, Trash2, ArchiveRestore, FileJson } from 'lucide-react';
+import { Plus, Star, Flag, Pencil, Trash2, FileJson } from 'lucide-react';
 import { useApp } from '../state/AppContext';
 import { emptyFilters, type Question, type QuestionBank, typeLabels } from '../domain/types';
 import { filterQuestions } from '../domain/study';
@@ -22,14 +22,12 @@ export function Bank({
     [detail, setDetail] = useState<Question | null>(null),
     [edit, setEdit] = useState<Question | null>(null),
     [deleting, setDeleting] = useState<Question | null>(null),
-    [showArchived, setShowArchived] = useState(false),
     [limit, setLimit] = useState(30);
   if (!d) return null;
   const list = filterQuestions(d, filters).filter(
     (q) =>
       !selected.length || selected.includes(d.entries.find((e) => e.id === q.id)?.bankId || ''),
   );
-  const archived = d.entries.filter((e) => e.archived);
   return (
     <div className="page">
       <div className="page-heading">
@@ -62,9 +60,9 @@ export function Bank({
           setSelected(ids);
           setLimit(30);
         }}
-        remove={(r, id) => r.archiveBank(id)}
-        action="세트 문제 제거"
-        warning="세트의 모든 문제를 학습 목록에서 제거합니다. 삭제한 문제에서 복구할 수 있어요."
+        remove={(r, id) => r.purgeContent(id)}
+        action="세트 영구 삭제"
+        warning="세트와 해당 문제의 풀이 기록을 영구 삭제합니다. 이미 보낸 사본은 유지됩니다."
       />
       <section className="panel bank-content">
         <QuestionFilters
@@ -84,42 +82,7 @@ export function Bank({
               </button>
             )}
           </strong>
-          <button className="text-link" onClick={() => setShowArchived(!showArchived)}>
-            삭제한 문제 ({archived.length})
-          </button>
         </div>
-        {showArchived && (
-          <div className="archived-list">
-            {archived.length ? (
-              archived.map((e) => (
-                <div key={e.id}>
-                  <span>
-                    {
-                      d.versions.find(
-                        (v) => v.question.id === e.id && v.question.version === e.currentVersion,
-                      )?.question.content
-                    }
-                  </span>
-                  <button
-                    className="button secondary"
-                    disabled={busy}
-                    onClick={() =>
-                      void perform(
-                        (r) => r.updateQuestion(e.id, { archived: false }),
-                        '문제를 복구했어요.',
-                      )
-                    }
-                  >
-                    <ArchiveRestore size={16} />
-                    복구
-                  </button>
-                </div>
-              ))
-            ) : (
-              <p className="muted">삭제한 문제가 없어요.</p>
-            )}
-          </div>
-        )}
         {list.length ? (
           <div className="question-list">
             {list.slice(0, limit).map((q) => {
@@ -242,10 +205,7 @@ export function Bank({
       {edit && <EditQuestion question={edit} onClose={() => setEdit(null)} />}
       {deleting && (
         <Modal title="문제를 삭제할까요?" onClose={() => setDeleting(null)}>
-          <p>
-            학습 목록에서 제외됩니다. 이전 풀이 기록과 통계는 유지되고, 삭제한 문제에서 복구할 수
-            있어요.
-          </p>
+          <p>문제와 해당 풀이 기록을 영구 삭제합니다. 세트의 마지막 문제라면 세트도 삭제됩니다.</p>
           <div className="modal-actions">
             <button className="button secondary" onClick={() => setDeleting(null)}>
               취소
@@ -255,7 +215,11 @@ export function Bank({
               disabled={busy}
               onClick={() =>
                 void perform(
-                  (r) => r.updateQuestion(deleting.id, { archived: true }),
+                  (r) =>
+                    r.purgeContent(
+                      d.entries.find((e) => e.id === deleting.id)!.bankId,
+                      deleting.id,
+                    ),
                   '문제를 삭제했어요.',
                 ).then((ok) => {
                   if (ok) setDeleting(null);

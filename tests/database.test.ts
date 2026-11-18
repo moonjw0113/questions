@@ -278,4 +278,14 @@ describe('Supabase PostgreSQL contract', () => {
     expect((await load()).banks.some((b) => b.id === 'shared-test')).toBe(true);
     await db.exec(`select set_config('request.jwt.claim.sub','${user}',false)`);
   });
+  it('permanently removes a bank and its attempts while preserving unrelated banks', async () => {
+    const before=await load();
+    await db.query('select public.purge_study_content($1,null)',[example.bank.id]);
+    const after=await load();
+    expect(after.banks.map(b=>b.id)).toEqual(expect.arrayContaining(before.banks.filter(b=>b.id!==example.bank.id).map(b=>b.id)));
+    expect(after.banks.some(b=>b.id===example.bank.id)).toBe(false);
+    expect(after.entries.some(e=>e.bankId===example.bank.id)).toBe(false);
+    expect(after.attempts.some(a=>a.questionId.startsWith(example.bank.id+'::'))).toBe(false);
+  });
+
 });
