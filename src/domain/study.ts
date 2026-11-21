@@ -93,7 +93,11 @@ export function createSession(
         .map((q) => [
           questionKey(q),
           q.type === 'multiple_choice'
-            ? (d.settings.shuffleChoices ? shuffle(q.options) : q.options).map((o) => o.id)
+            ? // 〈보기〉형 선택지(ㄱ / ㄱ, ㄴ …)는 시험지처럼 정해진 순서로 둔다.
+              (d.settings.shuffleChoices && !q.statements?.length
+                ? shuffle(q.options)
+                : q.options
+              ).map((o) => o.id)
             : [],
         ]),
     ),

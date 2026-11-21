@@ -1976,7 +1976,8 @@ strong {
   font-size: 15px;
   line-height: 1.8;
 }
-.feedback > p {
+.feedback > p,
+.feedback > .rich-p {
   font-size: 12px;
   margin-top: 14px;
   color: var(--muted);
@@ -2123,10 +2124,11 @@ strong {
   font-size: 12px;
   line-height: 1.9;
 }
-.result-detail p {
+.result-detail p,
+.result-detail .rich-p {
   margin: 6px 0;
 }
-.result-detail b {
+.result-detail p > b {
   font-size: 10px;
   margin-right: 8px;
   color: var(--muted);
@@ -2519,7 +2521,8 @@ strong {
   margin: 18px 0 0;
   line-height: 1.9;
 }
-.notice > p {
+.notice > p,
+.notice > .rich-p {
   margin-top: 5px;
 }
 .schema-links a {
@@ -2562,7 +2565,8 @@ strong {
 .modal > .segmented {
   margin-bottom: 20px;
 }
-.modal > p:not(.modal-intro) {
+.modal > p:not(.modal-intro),
+.modal > .rich-p {
   font-size: 12px;
   line-height: 1.9;
 }
@@ -4932,4 +4936,96 @@ strong {
 }
 .manage-tools button:disabled {
   opacity: 0.45;
+}
+
+/* 서식 텍스트(v1.1): 수식·표·〈보기〉 */
+.rich > .rich-para,
+.rich > .rich-table,
+.rich > .rich-math-block {
+  display: block;
+}
+.rich > .rich-para:only-child {
+  display: inline;
+}
+.rich > * + * {
+  margin-top: 0.6em;
+}
+.rich-math-block {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+.rich-math-block .katex-display {
+  margin: 0.2em 0;
+}
+.rich .katex {
+  font-size: 1.05em;
+}
+.rich-math-pending {
+  font-family: inherit;
+  color: var(--muted);
+}
+.rich-table {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.rich-table table {
+  border-collapse: collapse;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0;
+  word-break: keep-all;
+}
+.rich-table th,
+.rich-table td {
+  border: 1px solid var(--line-strong);
+  padding: 6px 12px;
+  text-align: center;
+}
+.rich-table th {
+  background: var(--surface-soft);
+  font-weight: 600;
+}
+.choice-text {
+  min-width: 0;
+}
+.statements {
+  position: relative;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 20px 16px 14px;
+  margin: -10px 0 26px;
+}
+.statements-title {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 10px;
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.statements ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.statements li {
+  display: flex;
+  gap: 8px;
+}
+.statement-label {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.result-detail .statements,
+.modal .statements {
+  margin: 16px 0;
 }

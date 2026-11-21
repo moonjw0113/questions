@@ -370,13 +370,19 @@ export function Settings({ exportResults }: { exportResults: () => void }) {
         />
         <div className="schema-links">
           <a href={`${import.meta.env.BASE_URL}question-bank.schema.json`} download>
-            문제 JSON 스키마
+            문제 JSON 스키마 v1.0
+          </a>
+          <a href={`${import.meta.env.BASE_URL}question-bank.v1.1.schema.json`} download>
+            문제 JSON 스키마 v1.1
           </a>
           <a href={`${import.meta.env.BASE_URL}study-result.schema.json`} download>
             study_result 스키마
           </a>
           <a href={`${import.meta.env.BASE_URL}examples/biology.json`} download>
-            문제 예제
+            문제 예제 v1.0
+          </a>
+          <a href={`${import.meta.env.BASE_URL}examples/science-v1_1.json`} download>
+            과학 문제 예제 v1.1
           </a>
         </div>
       </section>

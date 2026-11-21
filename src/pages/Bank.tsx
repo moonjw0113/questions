@@ -4,7 +4,8 @@ import { Plus, Star, Flag, Pencil, Trash2, FileJson } from 'lucide-react';
 import { useApp } from '../state/AppContext';
 import { emptyFilters, type Question, type QuestionBank, typeLabels } from '../domain/types';
 import { filterQuestions } from '../domain/study';
-import { parseBank, toImportQuestion } from '../domain/import';
+import { parseBank, schemaVersionOf, toImportQuestion } from '../domain/import';
+import { RichText, Statements } from '../components/RichText';
 import { modelAnswers } from '../domain/grading';
 import { QuestionFilters } from '../components/QuestionFilters';
 import { SharedBanks } from '../components/SharedBanks';
@@ -97,7 +98,7 @@ export function Bank({
                       <span>{q.topic}</span>
                       {entry.report && <Flag size={13} className="text-orange" />}
                     </div>
-                    <h3>{q.content}</h3>
+                    <RichText as="h3" text={q.content} rich={q.rich} />
                     <div className="question-row-foot">
                       <span>
                         {q.sourceId} · v{q.version}
@@ -162,18 +163,19 @@ export function Bank({
           <span className="badge green">
             {typeLabels[detail.type]} · {detail.topic}
           </span>
-          <h3 className="detail-question">{detail.content}</h3>
+          <RichText as="h3" className="detail-question" text={detail.content} rich={detail.rich} />
+          <Statements question={detail} />
           {detail.type === 'multiple_choice' &&
             detail.options.map((o) => (
               <p key={o.id}>
-                {o.id}. {o.text}
+                {o.id}. <RichText text={o.text} rich={detail.rich} />
               </p>
             ))}
           <div className="notice">
             <strong>모범답안</strong>
-            <p>{modelAnswers(detail).join(' · ')}</p>
+            <RichText as="p" text={modelAnswers(detail).join(' · ')} rich={detail.rich} />
           </div>
-          <p>{detail.explanation}</p>
+          <RichText as="p" text={detail.explanation} rich={detail.rich} />
           <div className="question-tags">
             {detail.tags.map((t) => (
               <span key={t}>#{t}</span>
@@ -238,8 +240,9 @@ function EditQuestion({ question: q, onClose }: { question: Question; onClose: (
   const { data: d, perform, busy } = useApp();
   const [text, setText] = useState(JSON.stringify(toImportQuestion(q), null, 2));
   const b = d!.banks.find((b) => b.id === d!.entries.find((e) => e.id === q.id)?.bankId)!;
+  const version = schemaVersionOf([q]);
   const bank: QuestionBank = {
-    schema_version: '1.0',
+    schema_version: version,
     bank: { id: b.id, title: b.title, subject: b.subject, unit: b.unit },
     questions: [],
   };
@@ -263,7 +266,7 @@ function EditQuestion({ question: q, onClose }: { question: Question; onClose: (
   return (
     <Modal title="문제 수정" onClose={onClose} wide>
       <p className="modal-intro">
-        v1.0 문제 객체를 수정하세요. 내용이 달라지면 새 내부 버전이 만들어집니다.
+        v{version} 문제 객체를 수정하세요. 내용이 달라지면 새 내부 버전이 만들어집니다.
       </p>
       <textarea
         className="code-input edit-code"

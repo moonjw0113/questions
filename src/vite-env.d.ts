@@ -2,7 +2,9 @@
 /// <reference types="vite-plugin-pwa/client" />
 declare module 'virtual:study-content' {
   export const schema: Record<string, unknown>;
+  export const schema11: Record<string, unknown>;
   export const biology: unknown;
   export const generationPrompt: string;
   export const analysisPrompt: string;
 }
+declare module 'katex/contrib/mhchem';

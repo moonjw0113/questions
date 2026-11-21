@@ -14,7 +14,12 @@ export interface QuestionBase {
   difficulty: Difficulty;
   source: string;
   createdAt: string;
+  /** v1.1 파일에서 가져온 문제. 본문·선택지·해설·보기를 서식 텍스트(수식·표)로 표시한다. */
+  rich?: boolean;
+  /** v1.1 〈보기〉 진술. 화면에서 ㄱ, ㄴ, ㄷ… 순서로 표시한다. */
+  statements?: string[];
 }
+export type SchemaVersion = '1.0' | '1.1';
 export interface Choice {
   id: string;
   text: string;
@@ -32,13 +37,14 @@ export type ImportQuestion = {
   prompt: string;
   explanation: string;
   tags: string[];
+  statements?: string[];
 } & (
   | { type: 'multiple_choice'; options: Choice[]; answer: { option_id: string } }
   | { type: 'short_answer'; answer: { accepted: string[] } }
   | { type: 'fill_blank'; answer: { blanks: { id: string; accepted: string[] }[] } }
 );
 export interface QuestionBank {
-  schema_version: '1.0';
+  schema_version: SchemaVersion;
   bank: { id: string; title: string; subject: string; unit: string };
   questions: ImportQuestion[];
 }

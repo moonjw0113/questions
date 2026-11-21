@@ -129,7 +129,7 @@ export function analysisExport(d: AppData, scope: ExportScope) {
         subject: v.question.subject,
         unit: v.question.unit,
         internal_version: v.question.version,
-        question: toImportQuestion(v.question),
+        question: toImportQuestion(v.question, { flatten: true }),
       })),
     frequent_errors: [...ids]
       .map((id) => ({
