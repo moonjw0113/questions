@@ -18,6 +18,7 @@ import { downloadJson, dayKey } from '../domain/statistics';
 import { validateBackup } from '../data/repository';
 import { type Settings as SettingsType } from '../domain/types';
 import { Modal, SectionTitle } from '../components/ui';
+import { ClaudeConnector } from '../components/ClaudeConnector';
 import { generationPrompt } from 'virtual:study-content';
 interface InstallEvent extends Event {
   prompt(): Promise<void>;
@@ -313,6 +314,7 @@ export function Settings({ exportResults }: { exportResults: () => void }) {
           문제나 문제은행이 연결된 과목·단원은 기록 보호를 위해 삭제할 수 없어요.
         </p>
       </section>
+      <ClaudeConnector />
       <section className="panel settings-section">
         <SectionTitle title="내 데이터 관리" />
         <div className="data-actions">

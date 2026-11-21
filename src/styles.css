@@ -5066,3 +5066,42 @@ strong {
   font-size: 12px;
   font-weight: 400;
 }
+
+/* 설정 · Claude 연결 */
+.connector-note {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.connector-url {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.connector-url input {
+  flex: 1 1 220px;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.connector-url .notice {
+  flex-basis: 100%;
+}
+.connector-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.connector-steps {
+  margin: 18px 0 10px;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--ink-2);
+  list-style: decimal;
+}
