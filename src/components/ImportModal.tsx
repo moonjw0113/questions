@@ -102,7 +102,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
   }
   return (
     <Modal title="문제 가져오기" onClose={onClose} wide>
-      <p className="modal-intro">ChatGPT Work에서 만든 문제를 나의 문제은행에 추가해요.</p>
+      <p className="modal-intro">차곡 문제 형식(JSON)으로 만든 문제를 나의 문제은행에 추가해요.</p>
       <div className="segmented">
         <button className={tab === 'file' ? 'active' : ''} onClick={() => setTab('file')}>
           <FileJson size={17} />

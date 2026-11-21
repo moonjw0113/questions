@@ -212,7 +212,7 @@ export function SharedBanks() {
                             </small>
                           </span>
                           <span className="sharing-check" aria-hidden="true">
-                            <Check size={14} />
+                            <Check size={12} strokeWidth={3.5} />
                           </span>
                         </label>
                       ))}

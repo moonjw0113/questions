@@ -314,7 +314,7 @@ export function Settings({ exportResults }: { exportResults: () => void }) {
         </p>
       </section>
       <section className="panel settings-section">
-        <SectionTitle title="내 데이터와 ChatGPT Work" />
+        <SectionTitle title="내 데이터 관리" />
         <div className="data-actions">
           <button onClick={exportResults}>
             <Download size={21} />

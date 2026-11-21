@@ -103,7 +103,7 @@ export function normalizeBank(bank: QuestionBank, d?: AppData): InternalBank {
         content: raw.prompt,
         explanation: raw.explanation,
         difficulty: raw.difficulty,
-        source: 'ChatGPT Work · JSON v1.0',
+        source: 'JSON 가져오기 · v1.0',
         createdAt: known?.question.createdAt || new Date().toISOString(),
       };
       if (raw.type === 'multiple_choice')

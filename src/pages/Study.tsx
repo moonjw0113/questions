@@ -143,12 +143,12 @@ export function Study({
                 : '문제·선택지 섞기는 설정에서 변경할 수 있어요.'}
           </p>
         </div>
-        <label>
+        <label className="check-row">
           <input
             type="checkbox"
             checked={practice}
             onChange={(e) => setPractice(e.target.checked)}
-          />{' '}
+          />
           무기록 학습 · 나가면 답안과 결과가 사라져요
         </label>
         {questions.length ? (
