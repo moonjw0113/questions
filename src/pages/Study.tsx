@@ -63,6 +63,17 @@ export function Study({
             await refresh();
             return true;
           },
+          // 무기록 학습은 브라우저 메모리에만 저장해서 바로 끝난다.
+          recordAnswer: async (session, input) => {
+            try {
+              await temporary.commitSession(session, [input]);
+              await refresh();
+              return true;
+            } catch (e) {
+              app.notify(String(e), true);
+              return false;
+            }
+          },
         }}
       >
         <Player
