@@ -2,7 +2,7 @@ import { ManageCards } from '../components/ManageCards';
 import { useState } from 'react';
 import { BookOpen, RotateCcw, Timer, ArrowRight, Shuffle } from 'lucide-react';
 import { Context, useApp } from '../state/AppContext';
-import { createSession, filterQuestions } from '../domain/study';
+import { createSession, filterQuestions, unsolvedInRound } from '../domain/study';
 import { emptyFilters, type Filters, type StudyMode, modeLabels } from '../domain/types';
 import { QuestionFilters } from '../components/QuestionFilters';
 import { DemoRepository } from '../data/repository';
@@ -74,6 +74,7 @@ export function Study({
     );
   }
   const questions = filterQuestions(d, filters),
+    unsolved = unsolvedInRound(d, questions).length,
     modes = [
       { id: 'learn' as const, icon: BookOpen, description: '한 문제씩 확인하며 개념을 익혀요.' },
       { id: 'review' as const, icon: RotateCcw, description: '기억이 약한 문제부터 다시 만나요.' },
@@ -155,7 +156,13 @@ export function Study({
           <div className="start-strip">
             <div>
               <strong>{Math.min(count, questions.length)}문제</strong>
-              <span> · {modeLabels[mode]} 준비 완료</span>
+              <span>
+                {' · '}
+                {mode !== 'review' && unsolved < questions.length
+                  ? `안 푼 문제 ${unsolved}개 우선 · `
+                  : ''}
+                {modeLabels[mode]} 준비 완료
+              </span>
             </div>
             <button className="button primary" disabled={busy} onClick={() => void start()}>
               {busy ? '준비 중…' : '학습 시작'}

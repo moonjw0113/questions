@@ -10,7 +10,13 @@ import {
   toImportQuestion,
 } from '../src/domain/import';
 import { scheduleReview } from '../src/domain/review';
-import { createSession, filterQuestions, shuffle } from '../src/domain/study';
+import {
+  createSession,
+  filterQuestions,
+  roundLag,
+  shuffle,
+  unsolvedInRound,
+} from '../src/domain/study';
 import { analysisExport, dayKey, getStats } from '../src/domain/statistics';
 import {
   defaultSettings,
@@ -164,6 +170,91 @@ describe('복습과 학습 범위', () => {
         units: [{ subject: '국어', unit: '1단원' }],
       }).map((q) => q.id),
     ).toEqual(['d']);
+  });
+  describe('안 푼 문제 우선 출제', () => {
+    const base = normalized.questions[1];
+    const setup = (solved: Record<string, number>) => {
+      const d = empty();
+      const questions = [
+        { ...base, id: 'a', unit: '1단원', difficulty: 1 as const },
+        { ...base, id: 'b', unit: '1단원', difficulty: 2 as const },
+        { ...base, id: 'c', unit: '1단원', difficulty: 2 as const },
+        { ...base, id: 'd', unit: '2단원', difficulty: 1 as const },
+        { ...base, id: 'e', unit: '2단원', difficulty: 1 as const },
+      ];
+      d.versions = questions.map((question) => ({ bankId: 'test', question }));
+      d.entries = questions.map((q) => ({
+        id: q.id,
+        bankId: 'test',
+        currentVersion: q.version,
+        favorite: false,
+        archived: false,
+        report: '',
+      }));
+      d.attempts = Object.entries(solved).flatMap(([questionId, n]) =>
+        Array.from({ length: n }, (_, i) => ({
+          id: `${questionId}-${i}`,
+          sessionId: 's',
+          questionId,
+          questionVersion: 1,
+          answer: ['x'],
+          durationMs: 1000,
+          mode: 'learn' as const,
+          answeredAt: new Date(Date.UTC(2026, 10, 1, 0, i)).toISOString(),
+          attemptNumber: i + 1,
+          manual: false,
+          score: 1,
+          correct: true,
+          partial: false,
+          blankResults: [],
+        })),
+      );
+      return d;
+    };
+    const pick = (d: AppData, f: Partial<typeof emptyFilters>, count: number, mode = 'learn') =>
+      createSession(
+        d,
+        filterQuestions(d, { ...emptyFilters, ...f }),
+        mode as 'learn',
+        count,
+      ).queue.map((q) => q.id);
+    const unit1 = { units: [{ subject: base.subject, unit: '1단원' }] };
+    it('한 단원에서 이미 푼 문제는 빼고 안 푼 문제부터 낸다', () => {
+      const d = setup({ a: 1, b: 1 });
+      for (let i = 0; i < 20; i++) expect(pick(d, unit1, 1)).toEqual(['c']);
+      for (let i = 0; i < 20; i++) expect(pick(d, unit1, 1, 'exam')).toEqual(['c']);
+    });
+    it('여러 단원을 골라도 단원별로 안 푼 문제만 먼저 고른다', () => {
+      const d = setup({ a: 1, b: 1, d: 1 });
+      for (let i = 0; i < 20; i++) expect(pick(d, {}, 2).sort()).toEqual(['c', 'e']);
+    });
+    it('단원 문제를 모두 풀면 다시 안 푼 것으로 보고, 기록 횟수는 그대로 쌓인다', () => {
+      const d = setup({ a: 1, b: 1, c: 1 });
+      expect(
+        unsolvedInRound(d, filterQuestions(d, { ...emptyFilters, ...unit1 })).map((q) => q.id),
+      ).toEqual(['a', 'b', 'c']);
+      expect(d.attempts.filter((a) => a.questionId === 'a')).toHaveLength(1);
+      const twice = setup({ a: 2, b: 1, c: 1 });
+      expect(roundLag(twice, filterQuestions(twice, { ...emptyFilters, ...unit1 })).get('a')).toBe(
+        1,
+      );
+      for (let i = 0; i < 20; i++) expect(pick(twice, unit1, 2).sort()).toEqual(['b', 'c']);
+    });
+    it('유형·난이도로 좁힌 범위 안에서 같은 기준을 쓴다', () => {
+      const d = setup({ a: 1, b: 1 });
+      // 난이도 2 범위: b는 풀었고 c는 안 풀었다.
+      for (let i = 0; i < 20; i++) expect(pick(d, { ...unit1, difficulty: '2' }, 1)).toEqual(['c']);
+      // 난이도 1 범위는 a 하나뿐이고 이미 풀었으므로 새 회차로 다시 나온다.
+      expect(pick(d, { ...unit1, difficulty: '1' }, 1)).toEqual(['a']);
+    });
+    it('안 푼 문제가 모자라면 그 단원의 다음 회차 문제로 채운다', () => {
+      const d = setup({ a: 1, b: 1 });
+      for (let i = 0; i < 20; i++) {
+        const queue = pick(d, unit1, 3);
+        expect(queue[0]).toBe('c');
+        expect(queue.slice(1).sort()).toEqual(['a', 'b']);
+      }
+    });
   });
   it('오답 10분, 연속 정답 간격 증가, 재오답 감소', () => {
     const at = '2026-10-26T00:00:00Z';
