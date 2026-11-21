@@ -2,6 +2,7 @@ import { createElement, Fragment, useEffect, useState, type ReactNode } from 're
 import type Katex from 'katex';
 import { parseRich, type Inline } from '../domain/richText';
 import { statementLabel } from '../domain/import';
+import { Chart } from './Chart';
 import type { Question } from '../domain/types';
 
 // KaTeX(약 300KB)는 수식이 있는 문제를 처음 볼 때만 불러온다.
@@ -102,6 +103,8 @@ export function RichText({
       </span>
     ) : b.kind === 'math' ? (
       <TexMath key={i} tex={b.tex} display lib={lib} />
+    ) : b.kind === 'chart' ? (
+      <Chart key={i} chart={b.chart} />
     ) : (
       <span className="rich-table" key={i}>
         <table>

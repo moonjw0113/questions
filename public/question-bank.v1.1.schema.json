@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://chagok.local/question-bank.v1.1.schema.json",
   "title": "차곡 문제은행 v1.1 · 고정 규격",
-  "description": "v1.0에 서식(수식·표·굵게)과 〈보기〉 진술(statements)을 더한 규격. v1.1 파일의 prompt, explanation, 선택지 text, statements는 서식 텍스트로 표시된다. 수식은 $...$(줄 안) 또는 $$...$$(따로 한 줄), 화학식은 $\\ce{2H2 + O2 -> 2H2O}$, 표는 마크다운 표(| 머리글 | ... | 다음 줄에 |---|---|), 굵게는 **...**, 줄바꿈은 \\n, 문자 $ 자체는 \\$로 쓴다.",
+  "description": "v1.0에 서식(수식·표·그래프·굵게)과 〈보기〉 진술(statements)을 더한 규격. v1.1 파일의 prompt, explanation, 선택지 text, statements는 서식 텍스트로 표시된다. 수식은 $...$(줄 안) 또는 $$...$$(따로 한 줄), 화학식은 $\\ce{2H2 + O2 -> 2H2O}$, 표는 마크다운 표(| 머리글 | ... | 다음 줄에 |---|---|), 그래프는 ```chart로 시작하고 ```로 끝나는 블록에 한 줄씩 type: line|scatter|bar, x: 가로축 이름, y: 세로축 이름, (선택) xrange: 최솟값 최댓값, yrange: 최솟값 최댓값, series 계열이름: x, y; x, y; … 를 적는다(막대 그래프의 x는 항목 이름). 굵게는 **...**, 줄바꿈은 \\n, 문자 $ 자체는 \\$로 쓴다.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -88,7 +88,7 @@
                 "maximum": 3
               },
               "prompt": {
-                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, ```chart 그래프, **굵게**",
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 10000,
@@ -107,7 +107,7 @@
                 }
               },
               "explanation": {
-                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, ```chart 그래프, **굵게**",
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 10000,
@@ -142,7 +142,7 @@
                       "pattern": "^[a-zA-Z0-9_-]{1,100}$"
                     },
                     "text": {
-                      "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                      "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, ```chart 그래프, **굵게**",
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 10000,
@@ -199,7 +199,7 @@
                 "maximum": 3
               },
               "prompt": {
-                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, ```chart 그래프, **굵게**",
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 10000,
@@ -218,7 +218,7 @@
                 }
               },
               "explanation": {
-                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, ```chart 그래프, **굵게**",
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 10000,
@@ -292,7 +292,7 @@
                 "maximum": 3
               },
               "prompt": {
-                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, ```chart 그래프, **굵게**",
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 10000,
@@ -311,7 +311,7 @@
                 }
               },
               "explanation": {
-                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, ```chart 그래프, **굵게**",
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 10000,

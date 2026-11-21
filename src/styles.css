@@ -4941,7 +4941,9 @@ strong {
 /* 서식 텍스트(v1.1): 수식·표·〈보기〉 */
 .rich > .rich-para,
 .rich > .rich-table,
-.rich > .rich-math-block {
+.rich > .rich-math-block,
+.rich > .rich-chart,
+.rich > .rich-chart-error {
   display: block;
 }
 .rich > .rich-para:only-child {
@@ -5028,4 +5030,39 @@ strong {
 .result-detail .statements,
 .modal .statements {
   margin: 16px 0;
+}
+.rich-chart svg {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  font-family: inherit;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.chart-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.chart-axis {
+  stroke: var(--ink-2);
+  stroke-width: 1.2;
+}
+.chart-tick {
+  fill: var(--muted);
+  font-size: 12px;
+}
+.chart-label {
+  fill: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+.rich-chart-error {
+  padding: 10px 12px;
+  border: 1px dashed var(--red-line);
+  border-radius: 8px;
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 400;
 }

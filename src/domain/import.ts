@@ -1,6 +1,7 @@
 import Ajv from 'ajv';
 import { schema, schema11 } from 'virtual:study-content';
 import { normalizeAnswer } from './grading';
+import { chartErrors } from './richText';
 import type {
   AppData,
   BankInfo,
@@ -60,6 +61,14 @@ export function parseBank(text: string): { bank?: QuestionBank; errors: string[]
     const at = `문제 ${i + 1} (${q.id})`;
     if (ids.has(q.id)) errors.push(`${at}: 문제은행 내 문제 ID가 중복됩니다.`);
     ids.add(q.id);
+    if (bank.schema_version === '1.1')
+      for (const text of [
+        q.prompt,
+        q.explanation,
+        ...(q.statements || []),
+        ...(q.type === 'multiple_choice' ? q.options.map((o) => o.text) : []),
+      ])
+        for (const e of chartErrors(text)) errors.push(`${at}: 그래프 형식 오류 · ${e}`);
     if (q.type === 'multiple_choice') {
       if (new Set(q.options.map((o) => o.id)).size !== q.options.length)
         errors.push(`${at}: 선택지 ID가 중복됩니다.`);

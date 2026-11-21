@@ -283,11 +283,11 @@ describe('Supabase PostgreSQL contract', () => {
   it('imports, versions and shares schema v1.1 banks with statements', async () => {
     const science = JSON.parse(readFileSync('public/examples/science-v1_1.json', 'utf8'));
     expect(await rpc('import_question_bank', science)).toEqual({
-      added: 3,
+      added: 4,
       updated: 0,
       skipped: 0,
     });
-    expect(await rpc('import_question_bank', science)).toMatchObject({ skipped: 3 });
+    expect(await rpc('import_question_bank', science)).toMatchObject({ skipped: 4 });
     const q = (await load()).versions.find((v) => v.bankId === science.bank.id)!.question;
     expect(q).toMatchObject({ rich: true, source: 'JSON 가져오기 · v1.1' });
     expect(q.statements).toEqual(science.questions[0].statements);
@@ -307,7 +307,7 @@ describe('Supabase PostgreSQL contract', () => {
     asOld.schema_version = '1.0';
     await expect(rpc('import_question_bank', asOld)).rejects.toThrow('schema_version 1.1');
     for (const x of asOld.questions) delete x.statements;
-    expect(await rpc('import_question_bank', asOld)).toMatchObject({ updated: 3 });
+    expect(await rpc('import_question_bank', asOld)).toMatchObject({ updated: 4 });
     await expect(
       rpc('import_question_bank', { ...science, schema_version: '2.0' }),
     ).rejects.toThrow();
