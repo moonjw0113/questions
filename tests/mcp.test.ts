@@ -1,0 +1,170 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import Ajv from 'ajv';
+import { createMcpHandler, tokenFromUrl, type CallDb } from '../src/mcp/server';
+import { normalizeBank } from '../src/domain/import';
+import { defaultSettings, type AppData, type QuestionBank } from '../src/domain/types';
+
+const token = 'tok_' + 'Z9y8'.repeat(10);
+const base = `https://example.supabase.co/functions/v1/chagok-mcp/${token}`;
+const science = JSON.parse(
+  readFileSync('public/examples/science-v1_1.json', 'utf8'),
+) as QuestionBank;
+
+function fakeDb() {
+  const bank = normalizeBank(science);
+  const data: AppData = {
+    subjects: [{ name: science.bank.subject, units: [science.bank.unit] }],
+    banks: [{ ...science.bank, createdAt: '2026-11-01T00:00:00.000Z' }],
+    entries: bank.questions.map((q) => ({
+      id: q.id,
+      bankId: science.bank.id,
+      currentVersion: 1,
+      favorite: false,
+      archived: false,
+      report: '',
+    })),
+    versions: bank.questions.map((question) => ({ bankId: science.bank.id, question })),
+    attempts: [
+      {
+        id: 'a1',
+        sessionId: 's1',
+        questionId: bank.questions[0].id,
+        questionVersion: 1,
+        answer: ['A'],
+        durationMs: 5000,
+        mode: 'learn',
+        answeredAt: '2026-11-20T00:00:00.000Z',
+        attemptNumber: 1,
+        manual: false,
+        score: 0,
+        correct: false,
+        partial: false,
+        blankResults: [false],
+      },
+    ],
+    sessions: [],
+    progress: [],
+    settings: { ...defaultSettings },
+  };
+  const calls: { token: string; action: string; args?: unknown }[] = [];
+  const callDb: CallDb = async (t, action, args) => {
+    calls.push({ token: t, action, args });
+    if (action === 'load') return structuredClone(data);
+    return { added: 1, updated: 0, skipped: 0 };
+  };
+  return { calls, handler: createMcpHandler(callDb) };
+}
+
+const post = (handler: (r: Request) => Promise<Response>, body: unknown, url = base) =>
+  handler(new Request(url, { method: 'POST', body: JSON.stringify(body) }));
+const rpc = async (handler: (r: Request) => Promise<Response>, method: string, params?: unknown) =>
+  (await (await post(handler, { jsonrpc: '2.0', id: 1, method, params })).json()) as any;
+const call = async (handler: (r: Request) => Promise<Response>, name: string, args = {}) =>
+  (await rpc(handler, 'tools/call', { name, arguments: args })).result as {
+    content: { text: string }[];
+    isError?: boolean;
+  };
+
+describe('Claude 커넥터(MCP)', () => {
+  it('주소에서 토큰을 읽고, 토큰 없는 주소는 거절한다', async () => {
+    expect(tokenFromUrl(base)).toBe(token);
+    expect(tokenFromUrl(base + '/')).toBe(token);
+    expect(tokenFromUrl('https://x/functions/v1/chagok-mcp')).toBe('');
+    expect(tokenFromUrl('https://x/functions/v1/chagok-mcp/short')).toBe('');
+    const { handler } = fakeDb();
+    expect((await post(handler, {}, 'https://x.supabase.co/functions/v1/chagok-mcp')).status).toBe(
+      404,
+    );
+    expect((await handler(new Request(base))).status).toBe(405);
+  });
+  it('초기화, 알림, 도구 목록', async () => {
+    const { handler } = fakeDb();
+    const init = await rpc(handler, 'initialize', {
+      protocolVersion: '2025-06-18',
+      capabilities: {},
+      clientInfo: { name: 'test', version: '1' },
+    });
+    expect(init.result).toMatchObject({
+      protocolVersion: '2025-06-18',
+      capabilities: { tools: {} },
+      serverInfo: { name: 'chagok' },
+    });
+    expect(
+      (await rpc(handler, 'initialize', { protocolVersion: '1999-01-01' })).result.protocolVersion,
+    ).toBe('2025-06-18');
+    const note = await post(handler, { jsonrpc: '2.0', method: 'notifications/initialized' });
+    expect(note.status).toBe(202);
+    const list = await rpc(handler, 'tools/list');
+    expect(list.result.tools.map((t: { name: string }) => t.name)).toEqual([
+      'get_question_format',
+      'list_question_banks',
+      'get_question_bank',
+      'import_question_bank',
+      'get_study_result',
+    ]);
+    expect((await rpc(handler, 'nope')).error.code).toBe(-32601);
+    expect((await rpc(handler, 'tools/call', { name: 'nope' })).error.code).toBe(-32602);
+  });
+  it('형식·목록·은행 내용을 돌려준다', async () => {
+    const { handler, calls } = fakeDb();
+    expect((await call(handler, 'get_question_format')).content[0].text).toContain(
+      'question-bank v1.1 JSON 스키마',
+    );
+    const list = JSON.parse((await call(handler, 'list_question_banks')).content[0].text);
+    expect(list.banks).toEqual([
+      expect.objectContaining({ id: science.bank.id, questions: 4, schema_version: '1.1' }),
+    ]);
+    const bank = JSON.parse(
+      (await call(handler, 'get_question_bank', { bank_id: science.bank.id })).content[0].text,
+    );
+    expect(bank).toEqual({
+      ...science,
+      questions: [...science.questions].sort((a, b) => a.id.localeCompare(b.id)),
+    });
+    expect((await call(handler, 'get_question_bank', { bank_id: 'none' })).isError).toBe(true);
+    expect(calls.every((c) => c.token === token)).toBe(true);
+  });
+  it('문제를 검사한 뒤에만 저장한다', async () => {
+    const { handler, calls } = fakeDb();
+    const bad = structuredClone(science);
+    bad.questions[0].answer = { option_id: 'Z' } as never;
+    const rejected = await call(handler, 'import_question_bank', { bank: bad });
+    expect(rejected.isError).toBe(true);
+    expect(rejected.content[0].text).toContain('answer.option_id');
+    const moved = structuredClone(science);
+    moved.bank.unit = '다른 단원';
+    expect((await call(handler, 'import_question_bank', { bank: moved })).isError).toBe(true);
+    expect(calls.some((c) => c.action === 'import')).toBe(false);
+    const ok = await call(handler, 'import_question_bank', { bank: science });
+    expect(ok.isError).toBeUndefined();
+    expect(ok.content[0].text).toContain('새 문제 1개');
+    expect(calls.find((c) => c.action === 'import')?.args).toEqual(science);
+  });
+  it('study_result는 규격에 맞고, DB 오류는 도구 오류로 알린다', async () => {
+    const { handler } = fakeDb();
+    const textOut = (await call(handler, 'get_study_result', { period: 'wrong' })).content[0].text;
+    const result = JSON.parse(textOut.slice(textOut.indexOf('# study_result\n') + 15));
+    const validate = new Ajv({ strict: false, allErrors: true }).compile(
+      JSON.parse(readFileSync('public/study-result.schema.json', 'utf8')),
+    );
+    expect(validate(result), JSON.stringify(validate.errors)).toBe(true);
+    expect(result.summary.attempts).toBe(1);
+    const broken = createMcpHandler(async () => {
+      throw Error('차곡 연결 주소가 올바르지 않거나 끊어졌습니다.');
+    });
+    const out = await call(broken, 'list_question_banks');
+    expect(out).toMatchObject({ isError: true });
+    expect(out.content[0].text).toContain('연결 주소');
+  });
+  it('여러 메시지를 한 번에 보내도 답한다', async () => {
+    const { handler } = fakeDb();
+    const res = await post(handler, [
+      { jsonrpc: '2.0', id: 1, method: 'ping' },
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+    ]);
+    const out = await res.json();
+    expect(out.map((m: { id: number }) => m.id)).toEqual([1, 2]);
+  });
+});

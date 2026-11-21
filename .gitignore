@@ -8,3 +8,4 @@ coverage/
 .qa/
 *.tsbuildinfo
 .pnpm-store/
+supabase/functions/*/dist/

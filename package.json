@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && pnpm mcp:build",
+    "mcp:build": "vite build --config vite.mcp.config.ts --logLevel warn",
+    "mcp:deploy": "pnpm mcp:build && pnpm dlx supabase functions deploy chagok-mcp --no-verify-jwt --use-api",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:db": "vitest run tests/database.test.ts",
-    "format": "prettier --write src tests scripts vite.config.ts"
+    "format": "prettier --write src tests scripts vite.config.ts vite.content.ts vite.mcp.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.80.0",

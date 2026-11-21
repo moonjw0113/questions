@@ -3,18 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { loadEnv } from 'vite';
-import { readFileSync } from 'node:fs';
-const embeddedContent = {
-  name: 'chagok-content',
-  resolveId(id: string) {
-    if (id === 'virtual:study-content') return '\0chagok-content';
-  },
-  load(id: string) {
-    if (id !== '\0chagok-content') return;
-    const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
-    return `export const schema=${read('public/question-bank.schema.json')};export const schema11=${read('public/question-bank.v1.1.schema.json')};export const biology=${read('public/examples/biology.json')};export const generationPrompt=${JSON.stringify(read('public/prompts/generate.txt'))};export const analysisPrompt=${JSON.stringify(read('public/prompts/analyze.txt'))};`;
-  },
-};
+import { embeddedContent } from './vite.content';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
