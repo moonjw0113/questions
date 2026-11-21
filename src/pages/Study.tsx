@@ -75,6 +75,7 @@ export function Study({
   }
   const questions = filterQuestions(d, filters),
     unsolved = unsolvedInRound(d, questions).length,
+    available = mode === 'review' ? questions.length : unsolved,
     modes = [
       { id: 'learn' as const, icon: BookOpen, description: '한 문제씩 확인하며 개념을 익혀요.' },
       { id: 'review' as const, icon: RotateCcw, description: '기억이 약한 문제부터 다시 만나요.' },
@@ -82,7 +83,7 @@ export function Study({
     ];
   async function start() {
     if (!d || !questions.length) return;
-    const session = createSession(d, questions, mode, Math.min(count, questions.length));
+    const session = createSession(d, questions, mode, Math.min(count, available));
     if (practice) {
       const repo = new DemoRepository({ ...d, sessions: [], attempts: [], progress: [] });
       await repo.commitSession(session);
@@ -121,7 +122,7 @@ export function Study({
       <section className="panel study-config">
         <div className="section-heading">
           <h2>학습 범위 선택</h2>
-          <span className="badge green">{questions.length}문제 선택 가능</span>
+          <span className="badge green">{available}문제 선택 가능</span>
         </div>
         <QuestionFilters value={filters} onChange={setFilters} />
         <div className="study-options">
@@ -155,11 +156,11 @@ export function Study({
         {questions.length ? (
           <div className="start-strip">
             <div>
-              <strong>{Math.min(count, questions.length)}문제</strong>
+              <strong>{Math.min(count, available)}문제</strong>
               <span>
                 {' · '}
                 {mode !== 'review' && unsolved < questions.length
-                  ? `안 푼 문제 ${unsolved}개 우선 · `
+                  ? '이번 회차 안 푼 문제만 · '
                   : ''}
                 {modeLabels[mode]} 준비 완료
               </span>

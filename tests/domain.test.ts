@@ -247,13 +247,17 @@ describe('복습과 학습 범위', () => {
       // 난이도 1 범위는 a 하나뿐이고 이미 풀었으므로 새 회차로 다시 나온다.
       expect(pick(d, { ...unit1, difficulty: '1' }, 1)).toEqual(['a']);
     });
-    it('안 푼 문제가 모자라면 그 단원의 다음 회차 문제로 채운다', () => {
-      const d = setup({ a: 1, b: 1 });
+    it('안 푼 문제가 모자라면 다른 문제로 채우지 않고 있는 만큼만 낸다', () => {
+      const d = setup({ a: 1, b: 1, d: 1 });
       for (let i = 0; i < 20; i++) {
-        const queue = pick(d, unit1, 3);
-        expect(queue[0]).toBe('c');
-        expect(queue.slice(1).sort()).toEqual(['a', 'b']);
+        expect(pick(d, unit1, 3)).toEqual(['c']);
+        expect(pick(d, unit1, 3, 'exam')).toEqual(['c']);
+        expect(pick(d, {}, 10).sort()).toEqual(['c', 'e']);
       }
+    });
+    it('집중 복습은 이 규칙과 상관없이 범위 전체에서 낸다', () => {
+      const d = setup({ a: 1, b: 1, d: 1 });
+      expect(pick(d, {}, 10, 'review').sort()).toEqual(['a', 'b', 'c', 'd', 'e']);
     });
   });
   it('오답 10분, 연속 정답 간격 증가, 재오답 감소', () => {
