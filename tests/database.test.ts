@@ -6,6 +6,7 @@ import { type AppData, emptyFilters } from '../src/domain/types';
 import { createSession, filterQuestions } from '../src/domain/study';
 import { gradeAnswer } from '../src/domain/grading';
 import { scheduleReview } from '../src/domain/review';
+import { createMcpHandler } from '../src/mcp/server';
 const user = '11111111-1111-4111-8111-111111111111',
   other = '22222222-2222-4222-8222-222222222222';
 let db: PGlite;
@@ -311,6 +312,90 @@ describe('Supabase PostgreSQL contract', () => {
     await expect(
       rpc('import_question_bank', { ...science, schema_version: '2.0' }),
     ).rejects.toThrow();
+  });
+  it('Claude connector tokens act only as their owner and can be revoked', async () => {
+    const token = 'tok_' + 'a1B2'.repeat(10);
+    const call = (t: string, action: string, args: unknown = {}) =>
+      db
+        .query<{ result: unknown }>('select public.connector_call($1,$2,$3::jsonb) result', [
+          t,
+          action,
+          JSON.stringify(args),
+        ])
+        .then((r) => r.rows[0].result);
+    await expect(db.query("select public.set_connector_token('short')")).rejects.toThrow();
+    await db.query('select public.set_connector_token($1)', [token]);
+    expect(
+      (await db.query<{ s: unknown }>('select public.connector_status() s')).rows[0].s,
+    ).toMatchObject({ lastUsedAt: null });
+    // 토큰 표는 직접 읽을 수 없고, 원래 토큰이 아니라 해시만 저장된다.
+    await expect(db.query('select * from public.connector_tokens')).rejects.toThrow(
+      'permission denied',
+    );
+    await db.exec('reset role');
+    expect(
+      (await db.query<{ h: string }>('select token_hash h from public.connector_tokens')).rows[0].h,
+    ).toMatch(/^[0-9a-f]{64}$/);
+    await db.exec('set role authenticated');
+    const mine = await load();
+    // 커넥터 서버처럼 로그인 정보 없는 anon으로 부른다.
+    await db.exec(`set role anon; select set_config('request.jwt.claim.sub','',false);`);
+    await expect(db.query('select public.load_study_data()')).rejects.toThrow();
+    const viaConnector = (await call(token, 'load')) as typeof mine;
+    expect(viaConnector.banks.map((b) => b.id).sort()).toEqual(mine.banks.map((b) => b.id).sort());
+    const bank = structuredClone(example);
+    bank.bank.id = 'connector-bank';
+    expect(await call(token, 'import', bank)).toMatchObject({ added: 4 });
+    await expect(call('tok_wrong' + 'x'.repeat(30), 'load')).rejects.toThrow('연결 주소');
+    await expect(call(token, 'drop')).rejects.toThrow('알 수 없는 커넥터 작업');
+    await db.exec(
+      `set role authenticated; select set_config('request.jwt.claim.sub','${other}',false);`,
+    );
+    expect((await load()).banks.some((b) => b.id === 'connector-bank')).toBe(false);
+    await db.exec(`select set_config('request.jwt.claim.sub','${user}',false);`);
+    expect((await load()).banks.some((b) => b.id === 'connector-bank')).toBe(true);
+    expect(
+      (await db.query<{ s: { lastUsedAt: string } }>('select public.connector_status() s')).rows[0]
+        .s.lastUsedAt,
+    ).toBeTruthy();
+    // MCP 서버를 실제 DB 함수에 이어서 처음부터 끝까지 돌린다(커넥터 서버는 anon으로 부른다).
+    const handler = createMcpHandler(async (t, action, args) => {
+      await db.exec(`set role anon; select set_config('request.jwt.claim.sub','',false);`);
+      try {
+        return await call(t, action, args);
+      } finally {
+        await db.exec(
+          `set role authenticated; select set_config('request.jwt.claim.sub','${user}',false);`,
+        );
+      }
+    });
+    const tool = async (name: string, args: unknown) => {
+      const res = await handler(
+        new Request(`https://x.supabase.co/functions/v1/chagok-mcp/${token}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'tools/call',
+            params: { name, arguments: args },
+          }),
+        }),
+      );
+      return (await res.json()).result as { content: { text: string }[]; isError?: boolean };
+    };
+    const science = JSON.parse(readFileSync('public/examples/science-v1_1.json', 'utf8'));
+    science.bank.id = 'connector-science';
+    expect((await tool('import_question_bank', { bank: science })).content[0].text).toContain(
+      '새 문제 4개',
+    );
+    const banks = JSON.parse((await tool('list_question_banks', {})).content[0].text).banks;
+    expect(banks).toContainEqual(
+      expect.objectContaining({ id: 'connector-science', questions: 4, schema_version: '1.1' }),
+    );
+    expect((await tool('get_study_result', {})).isError).toBeUndefined();
+    await db.query('select public.revoke_connector_token()');
+    await expect(call(token, 'load')).rejects.toThrow('연결 주소');
+    expect((await tool('list_question_banks', {})).isError).toBe(true);
   });
   it('permanently removes a bank and its attempts while preserving unrelated banks', async () => {
     const before = await load();
