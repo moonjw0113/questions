@@ -83,11 +83,11 @@ describe('문제 형식 v1.0 · v1.1 동시 지원', () => {
       report: '',
     }));
     repoData.banks = [{ ...science.bank, createdAt: new Date().toISOString() }];
-    expect(inspectImport(science, repoData)).toMatchObject({ skipped: 3, updated: 0 });
+    expect(inspectImport(science, repoData)).toMatchObject({ skipped: 4, updated: 0 });
     const asOld = structuredClone(science);
     asOld.schema_version = '1.0';
     asOld.questions.forEach((q) => delete q.statements);
-    expect(inspectImport(asOld, repoData)).toMatchObject({ skipped: 0, updated: 3 });
+    expect(inspectImport(asOld, repoData)).toMatchObject({ skipped: 0, updated: 4 });
   });
   it('〈보기〉형 선택지는 선택지 섞기 설정과 관계없이 순서를 지킨다', () => {
     const [mc] = normalizeBank(science).questions,
@@ -152,8 +152,8 @@ describe('체험 저장소의 v1.1 문제', () => {
   });
   it('가져오기, 중복 건너뛰기, 백업 검사와 복원까지 보기를 유지한다', async () => {
     const repo = new DemoRepository();
-    expect(await repo.importBank(science)).toMatchObject({ added: 3 });
-    expect(await repo.importBank(science)).toMatchObject({ skipped: 3 });
+    expect(await repo.importBank(science)).toMatchObject({ added: 4 });
+    expect(await repo.importBank(science)).toMatchObject({ skipped: 4 });
     const d = await repo.load();
     const q = d.versions.find((v) => v.bankId === science.bank.id)!.question;
     expect(q.rich).toBe(true);

@@ -1,4 +1,5 @@
-// v1.1 서식 텍스트 파서. HTML은 받지 않고, 수식·표·굵게·빈칸만 해석한다.
+// v1.1 서식 텍스트 파서. HTML은 받지 않고, 수식·표·그래프·굵게·빈칸만 해석한다.
+import { parseChart, type ChartResult } from './chart';
 export type Inline =
   | { kind: 'text'; text: string }
   | { kind: 'math'; tex: string }
@@ -8,7 +9,8 @@ export type Align = 'left' | 'center' | 'right' | null;
 export type Block =
   | { kind: 'para'; lines: Inline[][] }
   | { kind: 'math'; tex: string }
-  | { kind: 'table'; head: Inline[][]; align: Align[]; rows: Inline[][][] };
+  | { kind: 'table'; head: Inline[][]; align: Align[]; rows: Inline[][][] }
+  | { kind: 'chart'; chart: ChartResult };
 export interface RichOptions {
   /** {{1}} 같은 빈칸 표시를 빈칸으로 해석할지 */
   blanks?: boolean;
@@ -108,6 +110,10 @@ const alignOf = (cell: string): Align => {
   return null;
 };
 
+/** 글 속 그래프 블록의 형식 오류 목록. 가져오기 전에 알려 주려고 쓴다. */
+export const chartErrors = (text: string) =>
+  parseRich(text).flatMap((b) => (b.kind === 'chart' && b.chart.error ? [b.chart.error] : []));
+
 export function parseRich(text: string, options: RichOptions = {}): Block[] {
   const lines = text.replace(/\r\n?/g, '\n').split('\n');
   const blocks: Block[] = [];
@@ -119,6 +125,15 @@ export function parseRich(text: string, options: RichOptions = {}): Block[] {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
+    if (trimmed === '```chart') {
+      const end = lines.findIndex((l, j) => j > i && l.trim() === '```');
+      if (end > i) {
+        flush();
+        blocks.push({ kind: 'chart', chart: parseChart(lines.slice(i + 1, end).join('\n')) });
+        i = end;
+        continue;
+      }
+    }
     if (trimmed.startsWith('$$')) {
       const rest = trimmed.slice(2);
       const close = rest.indexOf('$$');
