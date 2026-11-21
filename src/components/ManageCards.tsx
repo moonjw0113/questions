@@ -49,7 +49,7 @@ export function ManageCards({
                 disabled={busy || working}
                 checked={ids.length === items.length}
                 onChange={(e) => onSelect(e.target.checked ? items.map((i) => i.id) : [])}
-              />{' '}
+              />
               전체 선택
             </label>
             <button
