@@ -85,9 +85,16 @@ begin
     if jsonb_typeof(x) <> 'string' or length(trim(x#>>'{}')) not between 1 and 10000 then raise exception '태그 값 오류'; end if;
   end loop;
   if (select count(*) <> count(distinct value) from jsonb_array_elements(q->'tags')) then raise exception '태그 중복'; end if;
+  n := case when q ? 'statements' then 1 else 0 end;
+  if n = 1 then
+    if jsonb_typeof(q->'statements') is distinct from 'array' or jsonb_array_length(q->'statements') not between 2 and 10 then raise exception '보기(statements)는 2~10개'; end if;
+    for x in select value from jsonb_array_elements(q->'statements') loop
+      if jsonb_typeof(x) <> 'string' or length(trim(x#>>'{}')) not between 1 and 10000 then raise exception '보기 값 오류'; end if;
+    end loop;
+  end if;
   if jsonb_typeof(q->'answer') is distinct from 'object' then raise exception 'answer 객체 오류'; end if;
   if q->>'type' = 'multiple_choice' then
-    if (select count(*) from jsonb_object_keys(q)) <> 9 or (select count(*) from jsonb_object_keys(q->'answer')) <> 1 or not ((q->'answer') ? 'option_id') then raise exception '객관식 필드 오류'; end if;
+    if (select count(*) from jsonb_object_keys(q)) <> 9 + n or (select count(*) from jsonb_object_keys(q->'answer')) <> 1 or not ((q->'answer') ? 'option_id') then raise exception '객관식 필드 오류'; end if;
     if jsonb_typeof(q->'options') is distinct from 'array' or jsonb_array_length(q->'options') not between 2 and 10 then raise exception '선택지는 2~10개'; end if;
     for x in select value from jsonb_array_elements(q->'options') loop
       if jsonb_typeof(x) <> 'object' or not(x ?& array['id','text']) or (select count(*) from jsonb_object_keys(x)) <> 2 or jsonb_typeof(x->'id') is distinct from 'string' or (x->>'id') !~ '^[a-zA-Z0-9_-]{1,100}$' or jsonb_typeof(x->'text') <> 'string' or length(trim(x->>'text')) not between 1 and 10000 then raise exception '선택지 형식 오류'; end if;
@@ -95,7 +102,7 @@ begin
     if (select count(*) <> count(distinct value->>'id') from jsonb_array_elements(q->'options')) then raise exception '선택지 ID 중복'; end if;
     if jsonb_typeof(q->'answer'->'option_id') is distinct from 'string' or not exists(select 1 from jsonb_array_elements(q->'options') where value->>'id' = q->'answer'->>'option_id') then raise exception '정답 선택지가 없음'; end if;
   elsif q->>'type' in ('short_answer','fill_blank') then
-    if (select count(*) from jsonb_object_keys(q)) <> 8 or q ? 'options' or (select count(*) from jsonb_object_keys(q->'answer')) <> 1 then raise exception '주관식 필드 오류'; end if;
+    if (select count(*) from jsonb_object_keys(q)) <> 8 + n or q ? 'options' or (select count(*) from jsonb_object_keys(q->'answer')) <> 1 then raise exception '주관식 필드 오류'; end if;
     if q->>'type' = 'short_answer' then
       b := jsonb_build_array(jsonb_build_object('accepted',q->'answer'->'accepted'));
     else
@@ -117,11 +124,11 @@ begin
 end $$;
 
 create function public.import_question_bank(p_bank jsonb) returns jsonb language plpgsql security definer set search_path = '' as $$
-declare u uuid := auth.uid(); b jsonb := p_bank->'bank'; q jsonb; k text; item public.questions; ver integer; payload jsonb; extra jsonb; added integer:=0; updated integer:=0; skipped integer:=0;
+declare u uuid := auth.uid(); b jsonb := p_bank->'bank'; q jsonb; k text; item public.questions; ver integer; payload jsonb; extra jsonb; added integer:=0; updated integer:=0; skipped integer:=0; fmt text := p_bank->>'schema_version'; rich boolean := p_bank->>'schema_version' = '1.1';
 begin
   if u is null then raise exception '로그인 필요'; end if;
   perform pg_advisory_xact_lock(hashtextextended(u::text,0));
-  if jsonb_typeof(p_bank) is distinct from 'object' or p_bank->>'schema_version' is distinct from '1.0' or (select count(*) from jsonb_object_keys(p_bank)) <> 3 or not(p_bank ?& array['schema_version','bank','questions']) then raise exception 'schema_version 1.0 문제 파일 필요'; end if;
+  if jsonb_typeof(p_bank) is distinct from 'object' or coalesce(fmt,'') not in ('1.0','1.1') or (select count(*) from jsonb_object_keys(p_bank)) <> 3 or not(p_bank ?& array['schema_version','bank','questions']) then raise exception 'schema_version 1.0 또는 1.1 문제 파일 필요'; end if;
   if jsonb_typeof(b) is distinct from 'object' or not(b ?& array['id','title','subject','unit']) or (select count(*) from jsonb_object_keys(b)) <> 4 then raise exception 'bank 형식 오류'; end if;
   if jsonb_typeof(b->'id') is distinct from 'string' or (b->>'id') !~ '^[a-zA-Z0-9_-]{1,100}$' then raise exception 'bank.id 형식 오류'; end if;
   foreach k in array array['title','subject','unit'] loop
@@ -135,16 +142,19 @@ begin
   insert into public.question_banks(user_id,id,title,subject,unit) values(u,b->>'id',b->>'title',b->>'subject',b->>'unit') on conflict(user_id,id) do update set title=excluded.title;
   for q in select value from jsonb_array_elements(p_bank->'questions') loop
     perform public.validate_import_question(q);
+    if not rich and q ? 'statements' then raise exception '보기(statements)는 schema_version 1.1 파일에서만 쓸 수 있습니다'; end if;
     select * into item from public.questions where user_id=u and bank_id=b->>'id' and external_id=q->>'id';
     if found then
-      if exists(select 1 from public.question_versions where user_id=u and question_id=item.id and raw=q) then skipped:=skipped+1; continue; end if;
+      if exists(select 1 from public.question_versions x where x.user_id=u and x.question_id=item.id and x.raw=q and coalesce((x.payload->>'rich')::boolean,false)=rich) then skipped:=skipped+1; continue; end if;
       ver:=item.current_version+1; updated:=updated+1;
     else
       insert into public.questions(user_id,bank_id,external_id) values(u,b->>'id',q->>'id') returning * into item;
       ver:=1; added:=added+1;
     end if;
     extra:=case q->>'type' when 'multiple_choice' then jsonb_build_object('options',q->'options','correctOptionId',q->'answer'->'option_id') when 'short_answer' then jsonb_build_object('acceptedAnswers',q->'answer'->'accepted') else jsonb_build_object('blanks',(select jsonb_agg(jsonb_build_object('id',value->'id','acceptedAnswers',value->'accepted')) from jsonb_array_elements(q->'answer'->'blanks'))) end;
-    payload:=jsonb_build_object('id',item.key,'sourceId',q->>'id','version',ver,'subject',b->>'subject','unit',b->>'unit','topic',q->>'topic','tags',q->'tags','content',q->>'prompt','explanation',q->>'explanation','difficulty',q->'difficulty','type',q->>'type','source','ChatGPT Work · JSON v1.0','createdAt',to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')) || extra;
+    payload:=jsonb_build_object('id',item.key,'sourceId',q->>'id','version',ver,'subject',b->>'subject','unit',b->>'unit','topic',q->>'topic','tags',q->'tags','content',q->>'prompt','explanation',q->>'explanation','difficulty',q->'difficulty','type',q->>'type','source','JSON 가져오기 · v'||fmt,'createdAt',to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')) || extra
+      || case when rich then jsonb_build_object('rich',true) else '{}'::jsonb end
+      || case when q ? 'statements' then jsonb_build_object('statements',q->'statements') else '{}'::jsonb end;
     insert into public.question_versions(user_id,question_id,version,raw,payload) values(u,item.id,ver,q,payload);
     update public.questions set current_version=ver where user_id=u and id=item.id;
   end loop;
@@ -298,6 +308,7 @@ begin
     if payload->>'type'='multiple_choice' then v_raw:=v_raw || jsonb_build_object('options',payload->'options','answer',jsonb_build_object('option_id',payload->>'correctOptionId'));
     elsif payload->>'type'='short_answer' then v_raw:=v_raw || jsonb_build_object('answer',jsonb_build_object('accepted',payload->'acceptedAnswers'));
     else v_raw:=v_raw || jsonb_build_object('answer',jsonb_build_object('blanks',(select jsonb_agg(jsonb_build_object('id',x->>'id','accepted',x->'acceptedAnswers')) from jsonb_array_elements(payload->'blanks') x))); end if;
+    if payload ? 'statements' then v_raw:=v_raw || jsonb_build_object('statements',payload->'statements'); end if;
     perform public.validate_import_question(v_raw);
     if payload->>'id' is distinct from (v->>'bankId')||'::'||(payload->>'sourceId') then raise exception '외부 문제 키 불일치'; end if;
     if not exists(select 1 from public.question_banks where user_id=u and id=v->>'bankId' and subject=payload->>'subject' and unit=payload->>'unit') then raise exception '백업 문제 과목·단원 불일치'; end if;

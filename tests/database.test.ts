@@ -24,6 +24,8 @@ beforeAll(async () => {
   );
   await db.exec(readFileSync('supabase/init.sql', 'utf8'));
   await db.exec(readFileSync('supabase/admin-sharing.sql', 'utf8'));
+  // 기존 DB용 업데이트 SQL도 이미 최신인 DB에 다시 적용해 오류 없이 도는지 확인한다.
+  await db.exec(readFileSync('supabase/question-format-1.1.sql', 'utf8'));
   await db.exec(`insert into public.study_admins(user_id) values ('${user}')`);
   await db.exec(
     `set role authenticated; select set_config('request.jwt.claim.sub','${user}',false);`,
@@ -278,14 +280,47 @@ describe('Supabase PostgreSQL contract', () => {
     expect((await load()).banks.some((b) => b.id === 'shared-test')).toBe(true);
     await db.exec(`select set_config('request.jwt.claim.sub','${user}',false)`);
   });
-  it('permanently removes a bank and its attempts while preserving unrelated banks', async () => {
-    const before=await load();
-    await db.query('select public.purge_study_content($1,null)',[example.bank.id]);
-    const after=await load();
-    expect(after.banks.map(b=>b.id)).toEqual(expect.arrayContaining(before.banks.filter(b=>b.id!==example.bank.id).map(b=>b.id)));
-    expect(after.banks.some(b=>b.id===example.bank.id)).toBe(false);
-    expect(after.entries.some(e=>e.bankId===example.bank.id)).toBe(false);
-    expect(after.attempts.some(a=>a.questionId.startsWith(example.bank.id+'::'))).toBe(false);
+  it('imports, versions and shares schema v1.1 banks with statements', async () => {
+    const science = JSON.parse(readFileSync('public/examples/science-v1_1.json', 'utf8'));
+    expect(await rpc('import_question_bank', science)).toEqual({
+      added: 3,
+      updated: 0,
+      skipped: 0,
+    });
+    expect(await rpc('import_question_bank', science)).toMatchObject({ skipped: 3 });
+    const q = (await load()).versions.find((v) => v.bankId === science.bank.id)!.question;
+    expect(q).toMatchObject({ rich: true, source: 'JSON 가져오기 · v1.1' });
+    expect(q.statements).toEqual(science.questions[0].statements);
+    // 공유하면 v1.1 그대로 전달된다.
+    const id = (
+      await db.query<{ id: string }>(
+        `select public.share_study_bank('${science.bank.id}', 'student@example.com') id`,
+      )
+    ).rows[0].id;
+    await db.exec(`select set_config('request.jwt.claim.sub','${other}',false)`);
+    await db.query('select public.receive_shared_study_bank($1::uuid)', [id]);
+    const shared = (await load()).versions.find((v) => v.bankId === science.bank.id)!.question;
+    expect(shared).toMatchObject({ rich: true, statements: q.statements });
+    await db.exec(`select set_config('request.jwt.claim.sub','${user}',false)`);
+    // v1.0 파일에는 보기를 넣을 수 없고, 같은 글이라도 v1.0으로 가져오면 새 버전이 된다.
+    const asOld = structuredClone(science);
+    asOld.schema_version = '1.0';
+    await expect(rpc('import_question_bank', asOld)).rejects.toThrow('schema_version 1.1');
+    for (const x of asOld.questions) delete x.statements;
+    expect(await rpc('import_question_bank', asOld)).toMatchObject({ updated: 3 });
+    await expect(
+      rpc('import_question_bank', { ...science, schema_version: '2.0' }),
+    ).rejects.toThrow();
   });
-
+  it('permanently removes a bank and its attempts while preserving unrelated banks', async () => {
+    const before = await load();
+    await db.query('select public.purge_study_content($1,null)', [example.bank.id]);
+    const after = await load();
+    expect(after.banks.map((b) => b.id)).toEqual(
+      expect.arrayContaining(before.banks.filter((b) => b.id !== example.bank.id).map((b) => b.id)),
+    );
+    expect(after.banks.some((b) => b.id === example.bank.id)).toBe(false);
+    expect(after.entries.some((e) => e.bankId === example.bank.id)).toBe(false);
+    expect(after.attempts.some((a) => a.questionId.startsWith(example.bank.id + '::'))).toBe(false);
+  });
 });
