@@ -38,6 +38,26 @@ export function filterQuestions(d: AppData, f: Filters, now = Date.now()): Quest
     );
   });
 }
+/**
+ * How many rounds each question is ahead of the rest of its unit, within the chosen range.
+ * 0 means "not solved yet in this round". Once every question of a unit in the range has been
+ * solved, the whole unit is back at 0, while the attempt history keeps every solve.
+ */
+export function roundLag(d: AppData, questions: Question[]): Map<string, number> {
+  const solved = new Map<string, number>();
+  for (const a of d.attempts) solved.set(a.questionId, (solved.get(a.questionId) || 0) + 1);
+  const unitKey = (q: Question) => `${q.subject}\u0000${q.unit}`;
+  const floor = new Map<string, number>();
+  for (const q of questions) {
+    const n = solved.get(q.id) || 0;
+    floor.set(unitKey(q), Math.min(floor.get(unitKey(q)) ?? n, n));
+  }
+  return new Map(questions.map((q) => [q.id, (solved.get(q.id) || 0) - floor.get(unitKey(q))!]));
+}
+export const unsolvedInRound = (d: AppData, questions: Question[]) => {
+  const lag = roundLag(d, questions);
+  return questions.filter((q) => lag.get(q.id) === 0);
+};
 export function createSession(
   d: AppData,
   questions: Question[],
@@ -53,6 +73,12 @@ export function createSession(
         p ? (Date.parse(p.nextDue) <= Date.now() ? -1000 : 0) + p.mastery : 50;
       return priority(pa) - priority(pb);
     });
+  else {
+    // Unsolved questions of the current round come first; if they run out, the unit's
+    // next round fills the rest (the sort is stable, so shuffling still applies within a round).
+    const lag = roundLag(d, questions);
+    queue.sort((a, b) => lag.get(a.id)! - lag.get(b.id)!);
+  }
   queue = queue.slice(0, count);
   const now = new Date().toISOString();
   return {
