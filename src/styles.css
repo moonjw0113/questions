@@ -173,6 +173,9 @@ input[type='checkbox']:disabled {
   font-weight: 500;
   cursor: pointer;
 }
+.check-row + .check-row {
+  margin-top: 10px;
+}
 button:focus-visible,
 a:focus-visible,
 summary:focus-visible {

@@ -255,6 +255,22 @@ describe('복습과 학습 범위', () => {
         expect(pick(d, {}, 10).sort()).toEqual(['c', 'e']);
       }
     });
+    it('안 푼 문제만 옵션을 끄면 푼 문제까지 범위 전체에서 섞어 낸다', () => {
+      const d = setup({ a: 1, b: 1, d: 1 });
+      const all = filterQuestions(d, emptyFilters);
+      const seen = new Set<string>();
+      for (let i = 0; i < 50; i++) {
+        const queue = createSession(d, all, 'learn', 2, { unsolvedOnly: false }).queue;
+        expect(queue).toHaveLength(2);
+        queue.forEach((q) => seen.add(q.id));
+      }
+      expect([...seen].sort()).toEqual(['a', 'b', 'c', 'd', 'e']);
+      expect(
+        createSession(d, all, 'exam', 10, { unsolvedOnly: false })
+          .queue.map((q) => q.id)
+          .sort(),
+      ).toEqual(['a', 'b', 'c', 'd', 'e']);
+    });
     it('집중 복습은 이 규칙과 상관없이 범위 전체에서 낸다', () => {
       const d = setup({ a: 1, b: 1, d: 1 });
       expect(pick(d, {}, 10, 'review').sort()).toEqual(['a', 'b', 'c', 'd', 'e']);
