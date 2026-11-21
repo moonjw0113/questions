@@ -237,8 +237,8 @@ begin
     select * into previous from public.answer_attempts where user_id=u and session_id=sid and question_id=q.id and question_version=(a->>'questionVersion')::integer;
     manual:=a ? 'manualScore';
     if manual then
-      if previous.id is null or payload->>'type'<>'short_answer' or a->>'manualScore' not in ('0','1') then raise exception '단답형의 기존 채점만 수정 가능'; end if;
-      grade:=jsonb_build_object('score',(a->>'manualScore')::integer,'correct',a->>'manualScore'='1','partial',false,'blankResults',jsonb_build_array(a->>'manualScore'='1'));
+      if previous.id is null or payload->>'type' not in ('short_answer','fill_blank') or a->>'manualScore' not in ('0','1') then raise exception '단답형·빈칸의 기존 채점만 수정 가능'; end if;
+      grade:=jsonb_build_object('score',(a->>'manualScore')::integer,'correct',a->>'manualScore'='1','partial',false,'blankResults',case when payload->>'type'='fill_blank' then (select jsonb_agg(a->>'manualScore'='1') from jsonb_array_elements(payload->'blanks')) else jsonb_build_array(a->>'manualScore'='1') end);
     elsif previous.id is not null and previous.data->'answer'<>a->'answer' then raise exception '이미 제출한 답변은 변경 불가';
     end if;
     aid:=coalesce(previous.id,(a->>'id')::uuid); atime:=coalesce(previous.answered_at,clock_timestamp());
@@ -332,7 +332,7 @@ begin
     select v.payload into strict payload from public.question_versions v where v.user_id=u and v.question_id=q.id and version=(a->>'questionVersion')::integer;
     if not exists(select 1 from public.study_sessions s, jsonb_array_elements(s.state->'queue') r where s.user_id=u and s.id=sid and r->>'id'=a->>'questionId' and r->>'version'=a->>'questionVersion') then raise exception '백업 답변의 문제 참조 오류'; end if;
     grade:=public.grade_study_answer(payload,a->'answer');
-    if (a->>'manual')::boolean and payload->>'type'='short_answer' then grade:=jsonb_build_object('score',case when (a->>'score')::numeric=1 then 1 else 0 end,'correct',(a->>'score')::numeric=1,'partial',false,'blankResults',jsonb_build_array((a->>'score')::numeric=1)); end if;
+    if (a->>'manual')::boolean and payload->>'type' in ('short_answer','fill_blank') then grade:=jsonb_build_object('score',case when (a->>'score')::numeric=1 then 1 else 0 end,'correct',(a->>'score')::numeric=1,'partial',false,'blankResults',case when payload->>'type'='fill_blank' then (select jsonb_agg((a->>'score')::numeric=1) from jsonb_array_elements(payload->'blanks')) else jsonb_build_array((a->>'score')::numeric=1) end); end if;
     if (a->>'durationMs')::numeric not between 0 and 604800000 then raise exception '백업 소요 시간 오류'; end if;
     if exists(select 1 from public.answer_attempts x where x.user_id=u and x.id=aid and (x.session_id<>sid or x.question_id<>q.id or x.question_version<>(a->>'questionVersion')::integer or x.data->'answer'<>a->'answer')) then raise exception '백업 답변 ID 충돌'; end if;
     insert into public.answer_attempts values(u,aid,sid,q.id,(a->>'questionVersion')::integer,(a->>'answeredAt')::timestamptz,(grade->>'score')::numeric,a || grade) on conflict do nothing;

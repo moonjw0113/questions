@@ -19,11 +19,20 @@ import {
   questionKey,
   typeLabels,
   modeLabels,
+  type AppData,
+  type Attempt,
   type AttemptInput,
   type Question,
   type StudySession,
 } from '../domain/types';
-import { completedSentence, modelAnswers } from '../domain/grading';
+import {
+  canAcceptManually,
+  completedSentence,
+  modelAnswers,
+  withAcceptedAnswer,
+} from '../domain/grading';
+import { toBankFile } from '../domain/import';
+import type { Repository } from '../data/repository';
 import { percentage } from '../domain/statistics';
 import { createSession } from '../domain/study';
 import { readDraft, writeDraft } from '../domain/draft';
@@ -225,15 +234,8 @@ function QuestionPlayer({
   }
   async function correctManually() {
     if (!attempt) return;
-    const input: AttemptInput = {
-      id: attempt.id,
-      questionId: q.id,
-      questionVersion: q.version,
-      answer: attempt.answer,
-      durationMs: attempt.durationMs,
-      manualScore: attempt.correct ? 0 : 1,
-    };
-    await perform((r) => r.commitSession(build(), [input]), '채점 결과와 복습 일정을 수정했어요.');
+    const change = manualCorrection(d!, build(), q, attempt, !privateStudy);
+    await perform(change.run, change.message);
   }
   const choices =
     q.type === 'multiple_choice'
@@ -482,16 +484,27 @@ function QuestionPlayer({
                 />
               )}
               <RichText as="p" text={q.explanation} rich={q.rich} />
-              {q.type === 'short_answer' && (
-                <button
-                  className="text-link"
-                  disabled={busy}
-                  onClick={() => void correctManually()}
-                >
-                  {attempt.manual ? '수동 수정됨 · ' : ''}
-                  {attempt.correct ? '오답으로 수정' : '내 답도 맞아요 · 정답으로 수정'}
-                </button>
-              )}
+              {canAcceptManually(q) &&
+                (attempt.correct ? (
+                  <button
+                    className="text-link"
+                    disabled={busy}
+                    onClick={() => void correctManually()}
+                  >
+                    {attempt.manual ? '정답으로 처리함 · 오답으로 되돌리기' : '오답으로 수정'}
+                  </button>
+                ) : (
+                  <button
+                    className="button secondary accept-answer"
+                    disabled={busy}
+                    onClick={() => void correctManually()}
+                  >
+                    <CheckCircle2 size={16} />
+                    {privateStudy
+                      ? '내 답도 맞아요 · 정답으로 처리'
+                      : '내 답도 맞아요 · 정답 처리하고 정답 목록에 추가'}
+                  </button>
+                ))}
             </div>
           )}
         </section>
@@ -558,7 +571,7 @@ function Results({
   onExit: () => void;
   onStart: (id: string) => void;
 }) {
-  const { data: d, perform, busy } = useApp();
+  const { data: d, perform, busy, privateStudy } = useApp();
   const attempts = d!.attempts.filter((a) => a.sessionId === s.id);
   const accuracy = percentage(attempts.map((a) => a.score));
   async function retry() {
@@ -660,29 +673,22 @@ function Results({
                 {q.type === 'fill_blank' && (
                   <RichText as="p" text={completedSentence(q)} rich={q.rich} />
                 )}
-                {q.type === 'short_answer' && a && (
+                {canAcceptManually(q) && a && (
                   <button
                     className="text-link"
                     disabled={busy}
-                    onClick={() =>
-                      void perform(
-                        (r) =>
-                          r.commitSession(s, [
-                            {
-                              id: a.id,
-                              questionId: q.id,
-                              questionVersion: q.version,
-                              answer: a.answer,
-                              durationMs: a.durationMs,
-                              manualScore: a.correct ? 0 : 1,
-                            },
-                          ]),
-                        '채점 결과를 수정했어요.',
-                      )
-                    }
+                    onClick={() => {
+                      const change = manualCorrection(d!, s, q, a, !privateStudy);
+                      void perform(change.run, change.message);
+                    }}
                   >
-                    {a.manual ? '수동 채점 · ' : ''}
-                    {a.correct ? '오답으로 수정' : '정답으로 수정'}
+                    {a.correct
+                      ? a.manual
+                        ? '정답으로 처리함 · 오답으로 되돌리기'
+                        : '오답으로 수정'
+                      : privateStudy
+                        ? '내 답도 맞아요 · 정답으로 처리'
+                        : '내 답도 맞아요 · 정답 처리하고 정답 목록에 추가'}
                   </button>
                 )}
               </div>
@@ -692,4 +698,43 @@ function Results({
       </div>
     </div>
   );
+}
+
+/**
+ * 수동 채점. 틀린 답을 정답으로 처리하면 그 답(틀린 빈칸의 답)을 문제의 정답 목록에도 더해
+ * 다음부터는 자동으로 맞게 한다(새 내부 버전, 이전 풀이 기록은 유지). 정답 처리한 것은
+ * 오답으로 되돌릴 수 있지만, 이미 더한 정답 목록은 그대로 둔다.
+ */
+function manualCorrection(
+  d: AppData,
+  session: StudySession,
+  q: Question,
+  a: Attempt,
+  saveAnswer: boolean,
+) {
+  const accept = !a.correct;
+  const input: AttemptInput = {
+    id: a.id,
+    questionId: q.id,
+    questionVersion: q.version,
+    answer: a.answer,
+    durationMs: a.durationMs,
+    manualScore: accept ? 1 : 0,
+  };
+  const entry = d.entries.find((e) => e.id === q.id);
+  const bank = d.banks.find((b) => b.id === entry?.bankId);
+  // 그사이 문제를 고쳤을 수 있으니 최신 버전에 정답을 더한다.
+  const latest = (entry && getQuestion(d, { id: q.id, version: entry.currentVersion })) || q;
+  const updated = accept && saveAnswer && bank ? withAcceptedAnswer(latest, a.answer) : null;
+  return {
+    run: async (r: Repository) => {
+      await r.commitSession(session, [input]);
+      if (updated && bank) await r.importBank(toBankFile(bank, [updated]));
+    },
+    message: !accept
+      ? '오답으로 되돌렸어요.'
+      : updated
+        ? '정답으로 처리하고, 내 답을 정답 목록에 추가했어요.'
+        : '정답으로 처리했어요.',
+  };
 }
