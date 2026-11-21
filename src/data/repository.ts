@@ -5,6 +5,7 @@ import {
   parseBank,
   normalizeBank,
   toImportQuestion,
+  schemaVersionOf,
   canonical,
   externalKey,
 } from '../domain/import';
@@ -62,7 +63,7 @@ export function validateBackup(raw: unknown): AppData {
     for (const v of d.versions.filter((v) => v.bankId === b.id)) {
       const parsed = parseBank(
         JSON.stringify({
-          schema_version: '1.0',
+          schema_version: schemaVersionOf([v.question]),
           bank: { id: b.id, title: b.title, subject: b.subject, unit: b.unit },
           questions: [toImportQuestion(v.question)],
         }),
@@ -339,7 +340,7 @@ export class DemoRepository implements Repository {
       const b = incoming.banks.find((b) => b.id === v.bankId)!;
       const result = inspectImport(
         {
-          schema_version: '1.0',
+          schema_version: schemaVersionOf([v.question]),
           bank: { id: b.id, title: b.title, subject: b.subject, unit: b.unit },
           questions: [toImportQuestion(v.question)],
         },

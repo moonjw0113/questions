@@ -21,7 +21,7 @@ create function public.study_is_admin() returns boolean language sql stable secu
 $$;
 
 create function public.share_study_bank(p_bank_id text, p_email text) returns uuid language plpgsql security definer set search_path = '' as $$
-declare u uuid := auth.uid(); recipient uuid; b public.question_banks; qs jsonb; snapshot jsonb; share_id uuid;
+declare u uuid := auth.uid(); recipient uuid; b public.question_banks; qs jsonb; rich boolean; snapshot jsonb; share_id uuid;
 begin
   if not public.study_is_admin() then raise exception '관리자만 문제를 보낼 수 있습니다.'; end if;
   if length(trim(coalesce(p_email,''))) not between 3 and 320 then raise exception '받는 사람의 이메일을 확인해 주세요.'; end if;
@@ -29,9 +29,9 @@ begin
   if recipient is null then raise exception '이메일 인증을 완료한 가입자를 찾을 수 없습니다.'; end if;
   select * into b from public.question_banks where user_id=u and id=p_bank_id;
   if not found then raise exception '문제은행을 찾을 수 없습니다.'; end if;
-  select jsonb_agg(v.raw order by q.external_id) into qs from public.questions q join public.question_versions v on v.user_id=q.user_id and v.question_id=q.id and v.version=q.current_version where q.user_id=u and q.bank_id=b.id and not q.archived;
+  select jsonb_agg(v.raw order by q.external_id), bool_or(coalesce((v.payload->>'rich')::boolean,false)) into qs, rich from public.questions q join public.question_versions v on v.user_id=q.user_id and v.question_id=q.id and v.version=q.current_version where q.user_id=u and q.bank_id=b.id and not q.archived;
   if qs is null then raise exception '보낼 수 있는 문제가 없습니다.'; end if;
-  snapshot := jsonb_build_object('schema_version','1.0','bank',jsonb_build_object('id',b.id,'title',b.title,'subject',b.subject,'unit',b.unit),'questions',qs);
+  snapshot := jsonb_build_object('schema_version',case when rich then '1.1' else '1.0' end,'bank',jsonb_build_object('id',b.id,'title',b.title,'subject',b.subject,'unit',b.unit),'questions',qs);
   select id into share_id from public.shared_question_banks where sender_id=u and recipient_id=recipient and received_at is null and bank=snapshot limit 1;
   if share_id is null then
     insert into public.shared_question_banks(sender_id,recipient_id,bank) values(u,recipient,snapshot) returning id into share_id;

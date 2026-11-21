@@ -1,0 +1,378 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://chagok.local/question-bank.v1.1.schema.json",
+  "title": "차곡 문제은행 v1.1 · 고정 규격",
+  "description": "v1.0에 서식(수식·표·굵게)과 〈보기〉 진술(statements)을 더한 규격. v1.1 파일의 prompt, explanation, 선택지 text, statements는 서식 텍스트로 표시된다. 수식은 $...$(줄 안) 또는 $$...$$(따로 한 줄), 화학식은 $\\ce{2H2 + O2 -> 2H2O}$, 표는 마크다운 표(| 머리글 | ... | 다음 줄에 |---|---|), 굵게는 **...**, 줄바꿈은 \\n, 문자 $ 자체는 \\$로 쓴다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bank",
+    "questions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.1"
+    },
+    "bank": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "subject",
+        "unit"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,100}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2000,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "topic",
+              "difficulty",
+              "prompt",
+              "explanation",
+              "tags",
+              "options",
+              "answer"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,100}$"
+              },
+              "type": {
+                "const": "multiple_choice"
+              },
+              "topic": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000,
+                "pattern": "\\S"
+              },
+              "difficulty": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3
+              },
+              "prompt": {
+                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000,
+                "pattern": "\\S"
+              },
+              "statements": {
+                "description": "선택 항목. 〈보기〉의 진술 목록(서식 텍스트). 앱이 ㄱ, ㄴ, ㄷ… 기호를 순서대로 붙이므로 기호 없이 내용만 쓴다. 선택지에서는 \"ㄱ, ㄴ\"처럼 기호로 고른다.",
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 10,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000,
+                  "pattern": "\\S"
+                }
+              },
+              "explanation": {
+                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000,
+                "pattern": "\\S"
+              },
+              "tags": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000,
+                  "pattern": "\\S"
+                }
+              },
+              "options": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 10,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "text"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,100}$"
+                    },
+                    "text": {
+                      "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 10000,
+                      "pattern": "\\S"
+                    }
+                  }
+                }
+              },
+              "answer": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "option_id"
+                ],
+                "properties": {
+                  "option_id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_-]{1,100}$"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "topic",
+              "difficulty",
+              "prompt",
+              "explanation",
+              "tags",
+              "answer"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,100}$"
+              },
+              "type": {
+                "const": "short_answer"
+              },
+              "topic": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000,
+                "pattern": "\\S"
+              },
+              "difficulty": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3
+              },
+              "prompt": {
+                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000,
+                "pattern": "\\S"
+              },
+              "statements": {
+                "description": "선택 항목. 〈보기〉의 진술 목록(서식 텍스트). 앱이 ㄱ, ㄴ, ㄷ… 기호를 순서대로 붙이므로 기호 없이 내용만 쓴다. 선택지에서는 \"ㄱ, ㄴ\"처럼 기호로 고른다.",
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 10,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000,
+                  "pattern": "\\S"
+                }
+              },
+              "explanation": {
+                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000,
+                "pattern": "\\S"
+              },
+              "tags": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000,
+                  "pattern": "\\S"
+                }
+              },
+              "answer": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "accepted"
+                ],
+                "properties": {
+                  "accepted": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 30,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 10000,
+                      "pattern": "\\S"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "topic",
+              "difficulty",
+              "prompt",
+              "explanation",
+              "tags",
+              "answer"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]{1,100}$"
+              },
+              "type": {
+                "const": "fill_blank"
+              },
+              "topic": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000,
+                "pattern": "\\S"
+              },
+              "difficulty": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3
+              },
+              "prompt": {
+                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000,
+                "pattern": "\\S"
+              },
+              "statements": {
+                "description": "선택 항목. 〈보기〉의 진술 목록(서식 텍스트). 앱이 ㄱ, ㄴ, ㄷ… 기호를 순서대로 붙이므로 기호 없이 내용만 쓴다. 선택지에서는 \"ㄱ, ㄴ\"처럼 기호로 고른다.",
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 10,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000,
+                  "pattern": "\\S"
+                }
+              },
+              "explanation": {
+                "description": "서식 텍스트: $수식$, $$수식$$, $\\ce{화학식}$, 마크다운 표, **굵게**",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000,
+                "pattern": "\\S"
+              },
+              "tags": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000,
+                  "pattern": "\\S"
+                }
+              },
+              "answer": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "blanks"
+                ],
+                "properties": {
+                  "blanks": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "accepted"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "accepted": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 30,
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 10000,
+                            "pattern": "\\S"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

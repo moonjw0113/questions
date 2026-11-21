@@ -169,13 +169,20 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
         />
       )}
       <div className="import-help">
-        <span>고정 규격 v1.0</span>
+        <span>규격 v1.0 · v1.1(수식·표·보기)</span>
         <a href={`${import.meta.env.BASE_URL}examples/biology.json`} download>
           <Download size={13} />
-          예제 파일
+          예제 v1.0
+        </a>
+        <a href={`${import.meta.env.BASE_URL}examples/science-v1_1.json`} download>
+          <Download size={13} />
+          과학 예제 v1.1
         </a>
         <a href={`${import.meta.env.BASE_URL}question-bank.schema.json`} download>
-          JSON 스키마
+          스키마 v1.0
+        </a>
+        <a href={`${import.meta.env.BASE_URL}question-bank.v1.1.schema.json`} download>
+          스키마 v1.1
         </a>
       </div>
       {batch.length > 0 && (

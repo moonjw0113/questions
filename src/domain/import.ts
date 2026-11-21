@@ -1,8 +1,32 @@
 import Ajv from 'ajv';
-import { schema } from 'virtual:study-content';
+import { schema, schema11 } from 'virtual:study-content';
 import { normalizeAnswer } from './grading';
-import type { AppData, ImportQuestion, InternalBank, Question, QuestionBank } from './types';
-const validate = new Ajv({ allErrors: true, strict: false }).compile(schema);
+import type {
+  AppData,
+  BankInfo,
+  ImportQuestion,
+  InternalBank,
+  Question,
+  QuestionBank,
+  SchemaVersion,
+} from './types';
+const ajv = new Ajv({ allErrors: true, strict: false });
+const validators = { '1.0': ajv.compile(schema), '1.1': ajv.compile(schema11) };
+export const schemaVersions = Object.keys(validators) as SchemaVersion[];
+/** 서식(수식·표)이나 〈보기〉를 쓰는 문제가 하나라도 있으면 v1.1, 아니면 v1.0으로 내보낸다. */
+export const schemaVersionOf = (questions: Question[]): SchemaVersion =>
+  questions.some((q) => q.rich) ? '1.1' : '1.0';
+export const statementLabel = (i: number) => 'ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊ'[i] ?? String(i + 1);
+export function toBankFile(
+  bank: Pick<BankInfo, 'id' | 'title' | 'subject' | 'unit'>,
+  questions: Question[],
+): QuestionBank {
+  return {
+    schema_version: schemaVersionOf(questions),
+    bank: { id: bank.id, title: bank.title, subject: bank.subject, unit: bank.unit },
+    questions: questions.map((q) => toImportQuestion(q)),
+  };
+}
 export const externalKey = (bankId: string, questionId: string) => `${bankId}::${questionId}`;
 export function parseBank(text: string): { bank?: QuestionBank; errors: string[] } {
   if (text.length > 10 * 1024 * 1024) return { errors: ['최대 파일 크기는 10MB입니다.'] };
@@ -12,6 +36,14 @@ export function parseBank(text: string): { bank?: QuestionBank; errors: string[]
   } catch (e) {
     return { errors: [`JSON 구문 오류: ${(e as Error).message}`] };
   }
+  const version = (value as { schema_version?: unknown } | null)?.schema_version;
+  if (typeof version === 'string' && !schemaVersions.includes(version as SchemaVersion))
+    return {
+      errors: [
+        `지원하지 않는 형식 버전입니다: ${version} (${schemaVersions.join(', ')}만 가져올 수 있어요)`,
+      ],
+    };
+  const validate = validators[version === '1.1' ? '1.1' : '1.0'];
   if (!validate(value))
     return {
       errors: (validate.errors || [])
@@ -61,12 +93,21 @@ export function canonical(value: unknown): string {
       .join(',')}}`;
   return JSON.stringify(value);
 }
-export function toImportQuestion(q: Question): ImportQuestion {
+/**
+ * 내부 문제를 가져오기 형식으로 되돌린다.
+ * flatten이면 〈보기〉를 본문 끝에 글로 붙여 v1.0 형식(학습 결과 파일 등)에도 맞춘다.
+ */
+export function toImportQuestion(q: Question, { flatten = false } = {}): ImportQuestion {
+  const statements = q.statements?.length ? q.statements : undefined;
   const base = {
     id: q.sourceId,
     topic: q.topic,
     difficulty: q.difficulty,
-    prompt: q.content,
+    prompt:
+      flatten && statements
+        ? `${q.content}\n\n〈보기〉\n${statements.map((t, i) => `${statementLabel(i)}. ${t}`).join('\n')}`
+        : q.content,
+    ...(statements && !flatten ? { statements } : {}),
     explanation: q.explanation,
     tags: q.tags,
   };
@@ -81,6 +122,7 @@ export function toImportQuestion(q: Question): ImportQuestion {
   };
 }
 export function normalizeBank(bank: QuestionBank, d?: AppData): InternalBank {
+  const rich = bank.schema_version === '1.1';
   return {
     bank: bank.bank,
     questions: bank.questions.map((raw) => {
@@ -89,6 +131,7 @@ export function normalizeBank(bank: QuestionBank, d?: AppData): InternalBank {
       const known = old.find(
         (v) =>
           canonical(toImportQuestion(v.question)) === canonical(raw) &&
+          !!v.question.rich === rich &&
           v.question.subject === bank.bank.subject &&
           v.question.unit === bank.bank.unit,
       );
@@ -103,8 +146,10 @@ export function normalizeBank(bank: QuestionBank, d?: AppData): InternalBank {
         content: raw.prompt,
         explanation: raw.explanation,
         difficulty: raw.difficulty,
-        source: 'JSON 가져오기 · v1.0',
+        source: `JSON 가져오기 · v${bank.schema_version}`,
         createdAt: known?.question.createdAt || new Date().toISOString(),
+        ...(rich ? { rich: true } : {}),
+        ...(raw.statements ? { statements: raw.statements } : {}),
       };
       if (raw.type === 'multiple_choice')
         return {

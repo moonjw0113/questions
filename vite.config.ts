@@ -12,7 +12,7 @@ const embeddedContent = {
   load(id: string) {
     if (id !== '\0chagok-content') return;
     const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
-    return `export const schema=${read('public/question-bank.schema.json')};export const biology=${read('public/examples/biology.json')};export const generationPrompt=${JSON.stringify(read('public/prompts/generate.txt'))};export const analysisPrompt=${JSON.stringify(read('public/prompts/analyze.txt'))};`;
+    return `export const schema=${read('public/question-bank.schema.json')};export const schema11=${read('public/question-bank.v1.1.schema.json')};export const biology=${read('public/examples/biology.json')};export const generationPrompt=${JSON.stringify(read('public/prompts/generate.txt'))};export const analysisPrompt=${JSON.stringify(read('public/prompts/analyze.txt'))};`;
   },
 };
 
@@ -46,10 +46,10 @@ export default defineConfig(({ mode }) => {
         registerType: 'prompt',
         includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
         manifest: {
-          name: '차곡 · 매일 쌓이는 나의 공부',
-          short_name: '차곡',
+          name: '李④끝 쨌 留ㅼ씪 ?볦씠???섏쓽 怨듬?',
+          short_name: '李④끝',
           lang: 'ko',
-          description: '문제를 풀고, 기억을 쌓고, 내 것으로 만드는 매일의 공부.',
+          description: '臾몄젣瑜??怨? 湲곗뼲???볤퀬, ??寃껋쑝濡?留뚮뱶??留ㅼ씪??怨듬?.',
           theme_color: '#36775a',
           background_color: '#f7f8f5',
           display: 'standalone',
@@ -61,7 +61,7 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,svg,png,json,txt}'],
+          globPatterns: ['**/*.{js,css,html,svg,png,json,txt,woff2}'],
           navigateFallback: 'index.html',
           // Auth and user data are never cached by the service worker.
           runtimeCaching: [],

@@ -28,6 +28,7 @@ import { percentage } from '../domain/statistics';
 import { createSession } from '../domain/study';
 import { readDraft, writeDraft } from '../domain/draft';
 import { Empty, Progress } from '../components/ui';
+import { RichText, Statements } from '../components/RichText';
 export function Player({
   id,
   onExit,
@@ -305,19 +306,17 @@ function QuestionPlayer({
             <span className="badge neutral">{['', '기본', '보통', '심화'][q.difficulty]}</span>
           </div>
           <span className="question-number">QUESTION {String(s.index + 1).padStart(2, '0')}</span>
-          <h1>
-            {q.type === 'fill_blank'
-              ? q.content.split(/(\{\{\d+\}\})/g).map((p, i) =>
-                  p.startsWith('{{') ? (
-                    <span className="inline-blank" key={i}>
-                      {p.replace(/[{}]/g, '')}
-                    </span>
-                  ) : (
-                    p
-                  ),
-                )
-              : q.content}
-          </h1>
+          <RichText
+            as="h1"
+            text={q.content}
+            rich={q.rich}
+            blank={
+              q.type === 'fill_blank'
+                ? (id) => <span className="inline-blank">{id}</span>
+                : undefined
+            }
+          />
+          <Statements question={q} />
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -342,7 +341,7 @@ function QuestionPlayer({
                         }}
                       >
                         <span className="choice-letter">{String.fromCharCode(65 + i)}</span>
-                        <span>{o.text}</span>
+                        <RichText text={o.text} rich={q.rich} className="choice-text" />
                         {correct ? (
                           <CheckCircle2 size={20} />
                         ) : graded && chosen ? (
@@ -427,11 +426,21 @@ function QuestionPlayer({
                 </h3>
               </div>
               <span className="eyebrow">모범답안</span>
-              <strong className="model-answer">{modelAnswers(q).join(' · ')}</strong>
+              <RichText
+                as="strong"
+                className="model-answer"
+                text={modelAnswers(q).join(' · ')}
+                rich={q.rich}
+              />
               {q.type === 'fill_blank' && (
-                <p className="completed-sentence">{completedSentence(q)}</p>
+                <RichText
+                  as="p"
+                  className="completed-sentence"
+                  text={completedSentence(q)}
+                  rich={q.rich}
+                />
               )}
-              <p>{q.explanation}</p>
+              <RichText as="p" text={q.explanation} rich={q.rich} />
               {q.type === 'short_answer' && (
                 <button
                   className="text-link"
@@ -580,22 +589,30 @@ function Results({
                   <small>
                     {i + 1}. {typeLabels[q.type]} · {q.topic}
                   </small>
-                  <strong>{q.content}</strong>
+                  <RichText as="strong" text={q.content} rich={q.rich} />
                 </span>
                 <span className="badge neutral">{Math.round((a?.score || 0) * 100)}점</span>
               </summary>
               <div className="result-detail">
+                <Statements question={q} />
                 <p>
                   <b>나의 답안</b>{' '}
-                  {q.type === 'multiple_choice'
-                    ? q.options.find((o) => o.id === a?.answer[0])?.text || '미입력'
-                    : a?.answer.join(' · ') || '미입력'}
+                  {q.type === 'multiple_choice' ? (
+                    <RichText
+                      text={q.options.find((o) => o.id === a?.answer[0])?.text || '미입력'}
+                      rich={q.rich}
+                    />
+                  ) : (
+                    a?.answer.join(' · ') || '미입력'
+                  )}
                 </p>
                 <p>
-                  <b>모범답안</b> {modelAnswers(q).join(' · ')}
+                  <b>모범답안</b> <RichText text={modelAnswers(q).join(' · ')} rich={q.rich} />
                 </p>
-                <p>{q.explanation}</p>
-                {q.type === 'fill_blank' && <p>{completedSentence(q)}</p>}
+                <RichText as="p" text={q.explanation} rich={q.rich} />
+                {q.type === 'fill_blank' && (
+                  <RichText as="p" text={completedSentence(q)} rich={q.rich} />
+                )}
                 {q.type === 'short_answer' && a && (
                   <button
                     className="text-link"
