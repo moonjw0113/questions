@@ -73,7 +73,16 @@ function QuestionPlayer({
   q: Question;
   onExit: () => void;
 }) {
-  const { data: d, perform, advanceSession, busy, demo, user, privateStudy } = useApp();
+  const {
+    data: d,
+    perform,
+    advanceSession,
+    recordAnswer,
+    busy,
+    demo,
+    user,
+    privateStudy,
+  } = useApp();
   const key = questionKey(q),
     saved = s.answers[key] || [];
   const draftKey = `chagok-draft:${demo ? 'demo' : user?.id}:${s.id}:${key}`;
@@ -157,8 +166,7 @@ function QuestionPlayer({
     return () => window.removeEventListener('beforeunload', before);
   }, [JSON.stringify(saved), JSON.stringify(answer)]);
   async function submit(value = answer) {
-    if (busy) return;
-    setSubmitting(true);
+    if (busy || graded || submitting) return;
     const updated = build(value);
     setAnswer(value);
     const input: AttemptInput = {
@@ -168,7 +176,9 @@ function QuestionPlayer({
       answer: value,
       durationMs: updated.durations[key],
     };
-    const ok = await perform((r) => r.commitSession(updated, [input]));
+    // 채점 결과는 바로 보이고, 저장은 뒤에서 이어진다.
+    setSubmitting(true);
+    const ok = await recordAnswer(updated, input);
     if (ok) clearDraft();
     setSubmitting(false);
   }
