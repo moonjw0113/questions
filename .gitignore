@@ -9,3 +9,4 @@ coverage/
 *.tsbuildinfo
 .pnpm-store/
 supabase/functions/*/dist/
+supabase/.temp/
