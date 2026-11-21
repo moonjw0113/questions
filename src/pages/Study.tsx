@@ -24,6 +24,7 @@ export function Study({
   const app = useApp();
   const { data: d, perform, busy } = app;
   const [practice, setPractice] = useState(false);
+  const [unsolvedOnly, setUnsolvedOnly] = useState(true);
   const [temporary, setTemporary] = useState<DemoRepository | null>(null);
   const [snapshot, setSnapshot] = useState(d);
   const [sessionId, setSessionId] = useState('');
@@ -75,7 +76,8 @@ export function Study({
   }
   const questions = filterQuestions(d, filters),
     unsolved = unsolvedInRound(d, questions).length,
-    available = mode === 'review' ? questions.length : unsolved,
+    onlyUnsolved = mode !== 'review' && unsolvedOnly,
+    available = onlyUnsolved ? unsolved : questions.length,
     modes = [
       { id: 'learn' as const, icon: BookOpen, description: '한 문제씩 확인하며 개념을 익혀요.' },
       { id: 'review' as const, icon: RotateCcw, description: '기억이 약한 문제부터 다시 만나요.' },
@@ -83,7 +85,9 @@ export function Study({
     ];
   async function start() {
     if (!d || !questions.length) return;
-    const session = createSession(d, questions, mode, Math.min(count, available));
+    const session = createSession(d, questions, mode, Math.min(count, available), {
+      unsolvedOnly: onlyUnsolved,
+    });
     if (practice) {
       const repo = new DemoRepository({ ...d, sessions: [], attempts: [], progress: [] });
       await repo.commitSession(session);
@@ -145,6 +149,16 @@ export function Study({
                 : '문제·선택지 섞기는 설정에서 변경할 수 있어요.'}
           </p>
         </div>
+        {mode !== 'review' && (
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={unsolvedOnly}
+              onChange={(e) => setUnsolvedOnly(e.target.checked)}
+            />
+            이번 회차에 안 푼 문제만 · 끄면 푼 문제까지 섞어서 내요
+          </label>
+        )}
         <label className="check-row">
           <input
             type="checkbox"
@@ -159,9 +173,7 @@ export function Study({
               <strong>{Math.min(count, available)}문제</strong>
               <span>
                 {' · '}
-                {mode !== 'review' && unsolved < questions.length
-                  ? '이번 회차 안 푼 문제만 · '
-                  : ''}
+                {onlyUnsolved && unsolved < questions.length ? '이번 회차 안 푼 문제만 · ' : ''}
                 {modeLabels[mode]} 준비 완료
               </span>
             </div>

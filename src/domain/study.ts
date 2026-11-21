@@ -63,10 +63,11 @@ export function createSession(
   questions: Question[],
   mode: StudyMode,
   count: number,
+  { unsolvedOnly = true }: { unsolvedOnly?: boolean } = {},
 ): StudySession {
-  // Learn and exam only hand out this round's unsolved questions; if fewer than `count`
-  // remain, the session is simply shorter, as it always was when a range ran short.
-  const pool = mode === 'review' ? questions : unsolvedInRound(d, questions);
+  // With `unsolvedOnly`, learn and exam hand out only this round's unsolved questions; if fewer
+  // than `count` remain, the session is simply shorter. Otherwise the whole range is used.
+  const pool = mode === 'review' || !unsolvedOnly ? questions : unsolvedInRound(d, questions);
   let queue = mode === 'exam' || d.settings.shuffleQuestions ? shuffle(pool) : [...pool];
   if (mode === 'review')
     queue.sort((a, b) => {
