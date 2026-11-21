@@ -132,7 +132,14 @@ export function validateBackup(raw: unknown): AppData {
     d.settings.dailyGoal < 1 ||
     d.settings.dailyGoal > 500 ||
     typeof d.settings.shuffleQuestions !== 'boolean' ||
-    typeof d.settings.shuffleChoices !== 'boolean'
+    typeof d.settings.shuffleChoices !== 'boolean' ||
+    (d.settings.roundResets !== undefined &&
+      (typeof d.settings.roundResets !== 'object' ||
+        d.settings.roundResets === null ||
+        Array.isArray(d.settings.roundResets) ||
+        Object.values(d.settings.roundResets).some(
+          (t) => typeof t !== 'string' || Number.isNaN(Date.parse(t)),
+        )))
   )
     throw Error('설정 값이 잘못되었습니다.');
   return d;

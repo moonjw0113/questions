@@ -42,10 +42,32 @@ export function filterQuestions(d: AppData, f: Filters, now = Date.now()): Quest
  * How many rounds each question is ahead of the rest of its unit, within the chosen range.
  * 0 means "not solved yet in this round". Once every question of a unit in the range has been
  * solved, the whole unit is back at 0, while the attempt history keeps every solve.
+ *
+ * 회차 카운트는 풀이 기록과 따로 센다: '안 푼 문제 초기화'를 한 문제는 그 시각 이후의 풀이만
+ * 센다(settings.roundResets). 초기화한 적이 없으면 지금까지의 풀이 수와 같다.
  */
-export function roundLag(d: AppData, questions: Question[]): Map<string, number> {
+export function roundCounts(d: AppData): Map<string, number> {
+  const resets = d.settings.roundResets || {};
   const solved = new Map<string, number>();
-  for (const a of d.attempts) solved.set(a.questionId, (solved.get(a.questionId) || 0) + 1);
+  for (const a of d.attempts) {
+    const since = resets[a.questionId];
+    if (since && Date.parse(a.answeredAt) <= Date.parse(since)) continue;
+    solved.set(a.questionId, (solved.get(a.questionId) || 0) + 1);
+  }
+  return solved;
+}
+/** 고른 문제들의 회차 카운트를 0으로 되돌리는 설정 값. 풀이 기록과 통계는 그대로다. */
+export function resetRounds(d: AppData, questions: Question[], at = new Date().toISOString()) {
+  return {
+    ...d.settings,
+    roundResets: {
+      ...d.settings.roundResets,
+      ...Object.fromEntries(questions.map((q) => [q.id, at])),
+    },
+  };
+}
+export function roundLag(d: AppData, questions: Question[]): Map<string, number> {
+  const solved = roundCounts(d);
   const unitKey = (q: Question) => `${q.subject}\u0000${q.unit}`;
   const floor = new Map<string, number>();
   for (const q of questions) {

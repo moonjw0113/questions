@@ -130,6 +130,8 @@ export interface Settings {
   reviewPace: 'standard' | 'gentle' | 'intensive';
   shuffleQuestions: boolean;
   shuffleChoices: boolean;
+  /** 문제별 "안 푼 문제 초기화" 시각(ISO). 이 시각 이후의 풀이만 회차 카운트에 넣는다. */
+  roundResets?: Record<string, string>;
 }
 export const defaultSettings: Settings = {
   theme: 'light',

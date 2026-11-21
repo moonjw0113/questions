@@ -1,5 +1,59 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X, ArrowRight, BookOpen } from 'lucide-react';
+
+/**
+ * 숫자를 직접 입력하는 칸. 입력 중에는 글자 그대로 두고, 칸을 벗어나거나 Enter를 누르면
+ * min~max 범위의 정수로 맞춰 onCommit으로 알린다.
+ */
+export function NumberInput({
+  value,
+  min,
+  max,
+  onCommit,
+  label,
+  suffix,
+  disabled,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  onCommit: (value: number) => void;
+  label: string;
+  suffix?: string;
+  disabled?: boolean;
+}) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => setText(String(value)), [value]);
+  const commit = () => {
+    const n = Math.round(Number(text));
+    const next = Number.isFinite(n) && text.trim() ? Math.min(max, Math.max(min, n)) : value;
+    setText(String(next));
+    if (next !== value) onCommit(next);
+  };
+  return (
+    <span className="number-input">
+      <input
+        type="number"
+        inputMode="numeric"
+        aria-label={label}
+        min={min}
+        max={max}
+        step={1}
+        value={text}
+        disabled={disabled}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          }
+        }}
+      />
+      {suffix && <span>{suffix}</span>}
+    </span>
+  );
+}
 export function Progress({ value, className = '' }: { value: number; className?: string }) {
   return (
     <div
