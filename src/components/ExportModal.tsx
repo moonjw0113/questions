@@ -12,7 +12,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   async function copy() {
     try {
       await navigator.clipboard.writeText(analysisPrompt);
-      notify('GPT 분석 요청 프롬프트를 복사했어요.');
+      notify('분석 요청 프롬프트를 복사했어요.');
     } catch {
       setShowPrompt(true);
       notify('아래 프롬프트를 직접 선택해서 복사해 주세요.');
@@ -24,7 +24,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         <FileJson size={35} />
       </div>
       <p className="modal-intro">
-        학습 기록을 ChatGPT Work에 전달하고, 나에게 필요한 새 문제를 받아 보세요.
+        학습 기록을 AI 도구에 전달하고, 나에게 필요한 새 문제를 받아 보세요.
       </p>
       <div className="export-filters">
         <label>
@@ -87,7 +87,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         </button>
         <button className="button secondary full" onClick={() => void copy()}>
           <Copy size={17} />
-          GPT 분석 요청용 프롬프트 복사
+          분석 요청 프롬프트 복사
         </button>
         <a
           className="text-link"

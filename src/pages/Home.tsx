@@ -338,11 +338,11 @@ export function Home({
           <div>
             <span className="eyebrow">나에게 꼭 맞는 문제로</span>
             <h3>
-              ChatGPT에서 만든 문제,
+              직접 만든 문제,
               <br />
               차곡에 가져오세요.
             </h3>
-            <p>JSON 파일 하나로 나만의 문제은행 완성.</p>
+            <p>JSON 파일 하나로 나만의 문제은행을 채울 수 있어요.</p>
             <span className="text-link">
               문제 가져오기
               <ArrowRight size={16} />
