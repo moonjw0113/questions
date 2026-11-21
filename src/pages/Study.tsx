@@ -2,12 +2,12 @@ import { ManageCards } from '../components/ManageCards';
 import { useState } from 'react';
 import { BookOpen, RotateCcw, Timer, ArrowRight, Shuffle } from 'lucide-react';
 import { Context, useApp } from '../state/AppContext';
-import { createSession, filterQuestions, unsolvedInRound } from '../domain/study';
+import { createSession, filterQuestions, resetRounds, unsolvedInRound } from '../domain/study';
 import { emptyFilters, type Filters, type StudyMode, modeLabels } from '../domain/types';
 import { QuestionFilters } from '../components/QuestionFilters';
 import { DemoRepository } from '../data/repository';
 import { Player } from './Player';
-import { Empty } from '../components/ui';
+import { Empty, Modal, NumberInput } from '../components/ui';
 export function Study({
   initialSubject = '',
   initialReview = false,
@@ -34,7 +34,9 @@ export function Study({
       subject: initialSubject,
       scope: initialReview ? 'due' : 'all',
     }),
-    [count, setCount] = useState(10);
+    [count, setCount] = useState(10),
+    [allQuestions, setAllQuestions] = useState(false),
+    [resetting, setResetting] = useState(false);
   if (!d) return null;
   if (temporary && snapshot) {
     const refresh = async () => setSnapshot(await temporary.load());
@@ -78,6 +80,7 @@ export function Study({
     unsolved = unsolvedInRound(d, questions).length,
     onlyUnsolved = mode !== 'review' && unsolvedOnly,
     available = onlyUnsolved ? unsolved : questions.length,
+    take = allQuestions ? available : Math.min(count, available),
     modes = [
       { id: 'learn' as const, icon: BookOpen, description: '한 문제씩 확인하며 개념을 익혀요.' },
       { id: 'review' as const, icon: RotateCcw, description: '기억이 약한 문제부터 다시 만나요.' },
@@ -85,7 +88,7 @@ export function Study({
     ];
   async function start() {
     if (!d || !questions.length) return;
-    const session = createSession(d, questions, mode, Math.min(count, available), {
+    const session = createSession(d, questions, mode, take, {
       unsolvedOnly: onlyUnsolved,
     });
     if (practice) {
@@ -130,16 +133,28 @@ export function Study({
         </div>
         <QuestionFilters value={filters} onChange={setFilters} />
         <div className="study-options">
-          <label>
-            문제 수
-            <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
-              {[5, 10, 20, 30, 50, 100, 2000].map((n) => (
-                <option value={n} key={n}>
-                  {n === 2000 ? '전체 문제' : `${n}문제`}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="count-picker">
+            <label>
+              문제 수
+              <select
+                value={allQuestions ? 'all' : 'custom'}
+                onChange={(e) => setAllQuestions(e.target.value === 'all')}
+              >
+                <option value="custom">사용자 지정</option>
+                <option value="all">전체</option>
+              </select>
+            </label>
+            {!allQuestions && (
+              <NumberInput
+                label="출제할 문제 수"
+                value={count}
+                min={1}
+                max={2000}
+                suffix="문제"
+                onCommit={setCount}
+              />
+            )}
+          </div>
           <p>
             <Shuffle size={17} />
             {mode === 'exam'
@@ -150,14 +165,55 @@ export function Study({
           </p>
         </div>
         {mode !== 'review' && (
-          <label className="check-row">
-            <input
-              type="checkbox"
-              checked={unsolvedOnly}
-              onChange={(e) => setUnsolvedOnly(e.target.checked)}
-            />
-            이번 회차에 안 푼 문제만 · 끄면 푼 문제까지 섞어서 내요
-          </label>
+          <div className="unsolved-row">
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={unsolvedOnly}
+                onChange={(e) => setUnsolvedOnly(e.target.checked)}
+              />
+              이번 회차에 안 푼 문제만 · 끄면 푼 문제까지 섞어서 내요
+            </label>
+            <span className="unsolved-count">
+              안 푼 문제 {unsolved} / {questions.length}
+            </span>
+            <button
+              className="text-link"
+              disabled={busy || !questions.length || unsolved === questions.length}
+              onClick={() => setResetting(true)}
+            >
+              안 푼 문제 초기화
+            </button>
+          </div>
+        )}
+        {resetting && (
+          <Modal title="안 푼 문제를 초기화할까요?" onClose={() => setResetting(false)}>
+            <p>
+              지금 고른 범위의 {questions.length}문제를 모두 <b>안 푼 문제</b>로 되돌려요. 이번
+              회차에서 푼 {questions.length - unsolved}문제도 다시 출제돼요.
+            </p>
+            <p className="notice">
+              풀이 기록, 정답률, 복습 일정은 그대로예요. 안 푼 문제를 세는 기준만 지금부터 새로
+              시작해요.
+            </p>
+            <div className="modal-actions">
+              <button className="button secondary" onClick={() => setResetting(false)}>
+                취소
+              </button>
+              <button
+                className="button primary"
+                disabled={busy}
+                onClick={() =>
+                  void perform(
+                    (r) => r.saveSettings(resetRounds(d, questions)),
+                    '안 푼 문제를 초기화했어요.',
+                  ).then((ok) => ok && setResetting(false))
+                }
+              >
+                초기화
+              </button>
+            </div>
+          </Modal>
         )}
         <label className="check-row">
           <input
@@ -170,7 +226,7 @@ export function Study({
         {questions.length ? (
           <div className="start-strip">
             <div>
-              <strong>{Math.min(count, available)}문제</strong>
+              <strong>{take}문제</strong>
               <span>
                 {' · '}
                 {onlyUnsolved && unsolved < questions.length ? '이번 회차 안 푼 문제만 · ' : ''}

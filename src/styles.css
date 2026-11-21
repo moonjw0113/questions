@@ -5105,3 +5105,64 @@ strong {
   color: var(--ink-2);
   list-style: decimal;
 }
+
+/* 키보드 안내(마우스가 있는 기기에서만) */
+.key-hint {
+  display: none;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  opacity: 0.7;
+}
+@media (pointer: fine) {
+  .key-hint {
+    display: inline-block;
+  }
+}
+
+/* 숫자 직접 입력 */
+.number-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.number-input input {
+  width: 84px;
+  font-size: 12px;
+  text-align: right;
+}
+.count-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* 학습 범위 · 안 푼 문제 줄 */
+.unsolved-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+}
+.unsolved-row .check-row {
+  flex: 1 1 280px;
+}
+.unsolved-row .unsolved-count {
+  margin-top: 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.unsolved-row .text-link {
+  margin-top: 18px;
+  font-size: 12px;
+}
+.unsolved-row + .check-row {
+  margin-top: 10px;
+}

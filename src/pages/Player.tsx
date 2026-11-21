@@ -101,6 +101,18 @@ function QuestionPlayer({
     (a) => a.sessionId === s.id && a.questionId === q.id && a.questionVersion === q.version,
   );
   const graded = s.mode !== 'exam' && Boolean(attempt);
+  // 키보드로 풀기: 새 문제에서는 첫 입력칸에, 채점 뒤에는 '다음 문제' 버튼에 포커스를 둔다.
+  // 그래서 답을 쓰고 Enter → 채점, 다시 Enter → 다음 문제로 마우스 없이 이어진다.
+  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const nextButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    // 휴대폰에서는 문제마다 키보드가 튀어나오지 않게, 마우스가 있는 기기에서만 입력칸에 바로 포커스한다.
+    if (!graded && window.matchMedia?.('(pointer: fine)').matches)
+      inputs.current[0]?.focus({ preventScroll: true });
+  }, []);
+  useEffect(() => {
+    if (graded && !busy) nextButton.current?.focus({ preventScroll: true });
+  }, [graded, busy]);
   const clock = useRef({
     active: document.visibilityState === 'visible',
     last: performance.now(),
@@ -321,6 +333,8 @@ function QuestionPlayer({
             onSubmit={(e) => {
               e.preventDefault();
               if (!graded && s.mode !== 'exam') void submit();
+              // 실전 시험은 채점이 없으니 Enter로 다음 문제로 간다(마지막 문제의 제출은 버튼으로만).
+              else if (s.mode === 'exam' && s.index < s.queue.length - 1 && !busy) void next();
             }}
           >
             <div className="answer-area">
@@ -363,6 +377,9 @@ function QuestionPlayer({
                     value={answer[0] || ''}
                     disabled={graded || submitting}
                     autoComplete="off"
+                    ref={(el) => {
+                      inputs.current[0] = el;
+                    }}
                     onChange={(e) => setAnswer([e.target.value])}
                   />
                 </label>
@@ -382,6 +399,20 @@ function QuestionPlayer({
                         value={answer[i] || ''}
                         disabled={graded || submitting}
                         autoComplete="off"
+                        ref={(el) => {
+                          inputs.current[i] = el;
+                        }}
+                        onKeyDown={(e) => {
+                          // 마지막 빈칸이 아니면 Enter로 다음 빈칸으로 옮긴다.
+                          if (
+                            e.key === 'Enter' &&
+                            !e.nativeEvent.isComposing &&
+                            i < q.blanks.length - 1
+                          ) {
+                            e.preventDefault();
+                            inputs.current[i + 1]?.focus();
+                          }
+                        }}
                         onChange={(e) => {
                           const a = q.blanks.map((_, index) => answer[index] || '');
                           a[i] = e.target.value;
@@ -477,8 +508,14 @@ function QuestionPlayer({
                 <CheckCircle2 size={16} />
                 {privateStudy ? '무기록 학습' : '학습 기록을 저장했어요'}
               </span>
-              <button className="button primary" disabled={busy} onClick={() => void next()}>
+              <button
+                ref={nextButton}
+                className="button primary"
+                disabled={busy}
+                onClick={() => void next()}
+              >
                 {s.index === s.queue.length - 1 ? '학습 마치기' : '다음 문제'}
+                <kbd className="key-hint">Enter</kbd>
                 <ArrowRight size={18} />
               </button>
             </>

@@ -17,7 +17,7 @@ import { supabase, configured } from '../data/supabase';
 import { downloadJson, dayKey } from '../domain/statistics';
 import { validateBackup } from '../data/repository';
 import { type Settings as SettingsType } from '../domain/types';
-import { Modal, SectionTitle } from '../components/ui';
+import { Modal, NumberInput, SectionTitle } from '../components/ui';
 import { ClaudeConnector } from '../components/ClaudeConnector';
 import { generationPrompt } from 'virtual:study-content';
 interface InstallEvent extends Event {
@@ -147,28 +147,15 @@ export function Settings({ exportResults }: { exportResults: () => void }) {
             <strong>하루 목표 문제 수</strong>
             <p>매일 조금씩 달성할 수 있는 목표가 좋아요.</p>
           </div>
-          <select
-            aria-label="하루 목표 문제 수"
+          <NumberInput
+            label="하루 목표 문제 수"
             value={d.settings.dailyGoal}
+            min={1}
+            max={500}
+            suffix="문제"
             disabled={busy}
-            onChange={(e) => setting({ dailyGoal: Number(e.target.value) })}
-          >
-            {[
-              5,
-              10,
-              20,
-              30,
-              50,
-              100,
-              ...([5, 10, 20, 30, 50, 100].includes(d.settings.dailyGoal)
-                ? []
-                : [d.settings.dailyGoal]),
-            ].map((n) => (
-              <option key={n} value={n}>
-                {n}문제
-              </option>
-            ))}
-          </select>
+            onCommit={(dailyGoal) => setting({ dailyGoal })}
+          />
         </div>
         <div className="setting-row">
           <div>
