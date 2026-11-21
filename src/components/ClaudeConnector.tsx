@@ -63,7 +63,8 @@ export function ClaudeConnector() {
             : error.message,
         );
       setUrl(
-        `${import.meta.env.VITE_SUPABASE_URL.replace(/\/+$/, '')}/functions/v1/chagok-mcp/${token}`,
+        // 배포 변수 끝에 줄바꿈이 붙어 있어도 주소가 끊기지 않게 공백을 지운다.
+        `${import.meta.env.VITE_SUPABASE_URL.trim().replace(/\/+$/, '')}/functions/v1/chagok-mcp/${token}`,
       );
       setStatus({ createdAt: new Date().toISOString(), lastUsedAt: null });
     });
