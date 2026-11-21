@@ -14,7 +14,7 @@
 - 커밋은 작은 단위로 나눈다.
 - `main`에 직접 push하지 않는다. `claude/<작업-요약>` 브랜치에서 작업하고 해당 브랜치로 push한다.
 - push 후 `main` 대상 PR을 열고 자동 머지(auto-merge)를 건다. 테스트(`build` 체크)가 통과하면 자동으로 머지되고 GitHub Pages에 배포된다. PR을 직접 머지하지는 않는다.
-- 커밋 전에 `pnpm test`와 `pnpm build`가 통과하는지 확인한다.
+- 커밋 전에 `pnpm test`와 `pnpm build`가 통과하는지 확인한다. 패키지 설치가 막혀 로컬에서 실행할 수 없으면 생략하고, PR의 `build` 체크(GitHub Actions)로 검증한다. 이때 로컬 검증을 못 했다는 점을 PR 설명에 적는다.
 - `.env`, 키, 토큰 등 비밀 값은 절대 커밋하지 않는다. (`.env.example`만 커밋)
 
 ## 주의
