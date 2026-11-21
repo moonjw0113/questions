@@ -64,7 +64,10 @@ export function createSession(
   mode: StudyMode,
   count: number,
 ): StudySession {
-  let queue = mode === 'exam' || d.settings.shuffleQuestions ? shuffle(questions) : [...questions];
+  // Learn and exam only hand out this round's unsolved questions; if fewer than `count`
+  // remain, the session is simply shorter, as it always was when a range ran short.
+  const pool = mode === 'review' ? questions : unsolvedInRound(d, questions);
+  let queue = mode === 'exam' || d.settings.shuffleQuestions ? shuffle(pool) : [...pool];
   if (mode === 'review')
     queue.sort((a, b) => {
       const pa = d.progress.find((p) => p.questionId === a.id),
@@ -73,12 +76,6 @@ export function createSession(
         p ? (Date.parse(p.nextDue) <= Date.now() ? -1000 : 0) + p.mastery : 50;
       return priority(pa) - priority(pb);
     });
-  else {
-    // Unsolved questions of the current round come first; if they run out, the unit's
-    // next round fills the rest (the sort is stable, so shuffling still applies within a round).
-    const lag = roundLag(d, questions);
-    queue.sort((a, b) => lag.get(a.id)! - lag.get(b.id)!);
-  }
   queue = queue.slice(0, count);
   const now = new Date().toISOString();
   return {
