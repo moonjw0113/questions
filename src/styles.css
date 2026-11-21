@@ -5166,3 +5166,10 @@ strong {
 .unsolved-row + .check-row {
   margin-top: 10px;
 }
+
+/* 내 답도 맞아요 · 정답 처리 */
+.accept-answer {
+  margin-top: 14px;
+  font-size: 12px;
+  gap: 6px;
+}

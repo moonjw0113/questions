@@ -27,6 +27,7 @@ beforeAll(async () => {
   await db.exec(readFileSync('supabase/admin-sharing.sql', 'utf8'));
   // 기존 DB용 업데이트 SQL도 이미 최신인 DB에 다시 적용해 오류 없이 도는지 확인한다.
   await db.exec(readFileSync('supabase/question-format-1.1.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/manual-grading-1.2.sql', 'utf8'));
   await db.exec(`insert into public.study_admins(user_id) values ('${user}')`);
   await db.exec(
     `set role authenticated; select set_config('request.jwt.claim.sub','${user}',false);`,
@@ -183,6 +184,39 @@ describe('Supabase PostgreSQL contract', () => {
     expect(actual.interval).toBeCloseTo(expected!.interval);
     expect(actual.ease).toBeCloseTo(expected!.ease);
     expect(actual.mastery).toBe(expected!.mastery);
+  });
+  it('fill-in-the-blank answers can be accepted manually, multiple choice cannot', async () => {
+    let d = await load();
+    const pick = (type: string) =>
+      d.versions.find((v) => v.question.type === type && v.bankId === example.bank.id)!.question;
+    for (const q of [pick('fill_blank'), pick('multiple_choice')]) {
+      const s = createSession(d, [q], 'learn', 1);
+      const answer = q.type === 'fill_blank' ? q.blanks.map(() => '비슷한 답') : ['Z'];
+      s.answers[`${q.id}@${q.version}`] = answer;
+      const input = {
+        id: crypto.randomUUID(),
+        questionId: q.id,
+        questionVersion: q.version,
+        answer,
+        durationMs: 10,
+      };
+      await rpc('commit_study_session', s, [input]);
+      d = await load();
+      const saved = d.sessions.find((x) => x.id === s.id)!;
+      const accept = rpc('commit_study_session', saved, [{ ...input, manualScore: 1 }]);
+      if (q.type === 'multiple_choice') {
+        await expect(accept).rejects.toThrow('단답형·빈칸');
+        continue;
+      }
+      await accept;
+      d = await load();
+      expect(d.attempts.find((a) => a.id === input.id)).toMatchObject({
+        manual: true,
+        correct: true,
+        score: 1,
+        blankResults: answer.map(() => true),
+      });
+    }
   });
   it('rejects attempt ID reuse across sessions atomically', async () => {
     const d = await load(),

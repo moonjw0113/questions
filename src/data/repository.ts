@@ -9,7 +9,7 @@ import {
   canonical,
   externalKey,
 } from '../domain/import';
-import { gradeAnswer } from '../domain/grading';
+import { canAcceptManually, gradeAnswer, manualGrade } from '../domain/grading';
 import { scheduleReview } from '../domain/review';
 import { demoData } from './demo';
 import { supabase } from './supabase';
@@ -252,10 +252,9 @@ export class DemoRepository implements Repository {
         (a) =>
           a.sessionId === session.id && a.questionId === q.id && a.questionVersion === q.version,
       );
-      const manual =
-        input.manualScore !== undefined && q.type === 'short_answer' && Boolean(previous);
+      const manual = input.manualScore !== undefined && canAcceptManually(q) && Boolean(previous);
       if (input.manualScore !== undefined && !manual)
-        throw Error('단답형의 저장된 채점만 수정할 수 있습니다.');
+        throw Error('단답형·빈칸의 저장된 채점만 수정할 수 있습니다.');
       const a = {
         ...grade,
         ...input,
@@ -268,13 +267,7 @@ export class DemoRepository implements Repository {
         manual,
         reviewPace: previous?.reviewPace || d.settings.reviewPace,
       };
-      if (manual)
-        Object.assign(a, {
-          score: input.manualScore,
-          correct: input.manualScore === 1,
-          partial: false,
-          blankResults: [input.manualScore === 1],
-        });
+      if (manual) Object.assign(a, manualGrade(q, input.manualScore!));
       d.attempts = [...d.attempts.filter((v) => v.id !== a.id), a];
     }
     d.sessions = [
@@ -411,13 +404,8 @@ export class DemoRepository implements Repository {
         const q = getQuestion(d, { id: a.questionId, version: a.questionVersion })!;
         d.attempts.push({
           ...a,
-          ...(a.manual && q.type === 'short_answer'
-            ? {
-                score: a.score === 1 ? 1 : 0,
-                correct: a.score === 1,
-                partial: false,
-                blankResults: [a.score === 1],
-              }
+          ...(a.manual && canAcceptManually(q)
+            ? manualGrade(q, a.score === 1 ? 1 : 0)
             : gradeAnswer(q, a.answer)),
         });
       }
