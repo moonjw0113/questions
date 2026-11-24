@@ -146,6 +146,7 @@ export function QuestionFilters({
             ['wrong', '최근에 틀린 문제'],
             ['due', '복습 예정'],
             ['favorite', '즐겨찾기'],
+            ['flagged', '수정·삭제 예정'],
           ] as const
         ).map(([k, v]) => (
           <button

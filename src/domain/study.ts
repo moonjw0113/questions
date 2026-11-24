@@ -30,6 +30,7 @@ export function filterQuestions(d: AppData, f: Filters, now = Date.now()): Quest
       (f.scope !== 'wrong' || Boolean(last && last.score < 1)) &&
       (f.scope !== 'due' || Boolean(progress && Date.parse(progress.nextDue) <= now)) &&
       (f.scope !== 'favorite' || Boolean(d.entries.find((e) => e.id === q.id)?.favorite)) &&
+      (f.scope !== 'flagged' || Boolean(d.entries.find((e) => e.id === q.id)?.report)) &&
       (!f.search ||
         [q.content, q.topic, ...q.tags, q.unit, q.subject]
           .join(' ')
