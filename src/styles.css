@@ -5173,3 +5173,177 @@ strong {
   font-size: 12px;
   gap: 6px;
 }
+
+/* 풀이 · 이전 문제와 번호 목록 */
+.player-bottom > .prev-button {
+  flex-shrink: 0;
+}
+.player-bottom > .prev-button + span {
+  flex: 1;
+}
+.icon-button.flagged {
+  color: var(--orange);
+  background: var(--orange-soft);
+}
+.icon-button.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.question-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 6px;
+  margin: 4px 0 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  max-height: 220px;
+  overflow-y: auto;
+}
+.nav-number {
+  position: relative;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.nav-number:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+.nav-number.correct,
+.nav-number.answered {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+.nav-number.wrong {
+  background: var(--red-soft);
+  border-color: var(--red-line);
+  color: var(--red);
+}
+.nav-number.current {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.nav-number.marked::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--orange);
+}
+.report-form .text-link {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+/* 문제은행 · 수정·삭제 예정과 세트 합치기 */
+.question-tools {
+  margin-bottom: 1rem;
+}
+.question-tools .segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tools-empty,
+.tools-hint {
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.tools-actions {
+  margin-top: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.tools-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.tools-buttons .button {
+  font-size: 12px;
+  gap: 6px;
+}
+.text-link.danger,
+.button.danger {
+  color: var(--red);
+}
+.button.primary.danger {
+  background: var(--red);
+  color: #fff;
+}
+.flagged-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 0;
+  list-style: none;
+}
+.flagged-list .manage-card span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.flagged-list strong {
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.merge-sources {
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+}
+.merge-sources .check-row {
+  margin-top: 8px;
+}
+.merge-sources small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.merge-file {
+  margin-top: 14px;
+  font-size: 12px;
+  gap: 6px;
+  cursor: pointer;
+}
+.merge-files {
+  margin-top: 10px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.merge-files li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.merge-files li.has-error span {
+  color: var(--red);
+}
+.merge-target {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+.merge-target label {
+  font-size: 12px;
+}
+.notice.error {
+  color: var(--red);
+}

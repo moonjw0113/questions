@@ -7,6 +7,7 @@ import {
   XCircle,
   Clock3,
   Flag,
+  Menu,
   Star,
   Pause,
   Trophy,
@@ -19,6 +20,7 @@ import {
   questionKey,
   typeLabels,
   modeLabels,
+  FLAG_DEFAULT,
   type AppData,
   type Attempt,
   type AttemptInput,
@@ -114,6 +116,7 @@ function QuestionPlayer({
     }),
     [report, setReport] = useState(false),
     [reportText, setReportText] = useState(''),
+    [nav, setNav] = useState(false),
     [submitting, setSubmitting] = useState(false);
   const attempt = d!.attempts.find(
     (a) => a.sessionId === s.id && a.questionId === q.id && a.questionVersion === q.version,
@@ -232,6 +235,40 @@ function QuestionPlayer({
         clearDraft();
     } else if (await advanceSession(next, s)) clearDraft();
   }
+  /** 번호 목록에서 고른 문제로 바로 이동한다(푼 문제는 채점 결과와 함께 다시 볼 수 있다). */
+  async function go(index: number) {
+    setNav(false);
+    if (index === s.index || index < 0 || index >= s.queue.length) return;
+    const moved = build();
+    moved.index = index;
+    if (await advanceSession(moved, s)) clearDraft();
+  }
+  const entry = d!.entries.find((e) => e.id === q.id);
+  const flagged = Boolean(entry?.report);
+  const prevButton =
+    s.index > 0 ? (
+      <button
+        className="button secondary prev-button"
+        disabled={busy}
+        aria-label="이전 문제"
+        onClick={() => void next(-1)}
+      >
+        <ArrowLeft size={17} />
+        이전
+      </button>
+    ) : null;
+  /** 수정·삭제 예정 표시. 표시는 문제은행의 '표시한 문제'에 모이고, 메모를 남길 수 있다. */
+  function toggleFlag() {
+    if (flagged) {
+      setReport(!report);
+      return;
+    }
+    setReportText('');
+    void perform(
+      (r) => r.updateQuestion(q.id, { report: FLAG_DEFAULT }),
+      '수정·삭제 예정으로 표시했어요. 문제은행에서 모아 볼 수 있어요.',
+    ).then((ok) => ok && setReport(true));
+  }
   async function correctManually() {
     if (!attempt) return;
     const change = manualCorrection(d!, build(), q, attempt, !privateStudy);
@@ -291,36 +328,100 @@ function QuestionPlayer({
               <Star size={19} />
             </button>
             <button
-              className="icon-button"
-              aria-label="문제 오류 표시"
-              onClick={() => setReport(!report)}
+              className={`icon-button ${flagged ? 'flagged' : ''}`}
+              aria-label={flagged ? '수정·삭제 예정 표시됨 · 메모 보기' : '수정·삭제 예정으로 표시'}
+              title={flagged ? '수정·삭제 예정 표시됨' : '수정·삭제 예정으로 표시'}
+              disabled={busy}
+              onClick={toggleFlag}
             >
               <Flag size={18} />
             </button>
+            <button
+              className={`icon-button ${nav ? 'active' : ''}`}
+              aria-label="문제 번호 목록"
+              aria-expanded={nav}
+              title="문제 번호 목록"
+              onClick={() => setNav(!nav)}
+            >
+              <Menu size={19} />
+            </button>
           </div>
         </div>
-        {report && (
+        {nav && (
+          <nav className="question-nav" aria-label="문제 번호로 이동">
+            {s.queue.map((ref, i) => {
+              const k = questionKey(ref);
+              const done =
+                s.mode === 'exam'
+                  ? Boolean(s.answers[k]?.some((x) => x.trim()))
+                  : d!.attempts.find(
+                      (a) =>
+                        a.sessionId === s.id &&
+                        a.questionId === ref.id &&
+                        a.questionVersion === ref.version,
+                    );
+              const state =
+                done === undefined || done === false
+                  ? ''
+                  : done === true
+                    ? 'answered'
+                    : done.correct
+                      ? 'correct'
+                      : 'wrong';
+              const mark = d!.entries.find((e) => e.id === ref.id)?.report;
+              return (
+                <button
+                  key={k}
+                  className={`nav-number ${state} ${i === s.index ? 'current' : ''} ${mark ? 'marked' : ''}`}
+                  aria-current={i === s.index ? 'step' : undefined}
+                  aria-label={`${i + 1}번 문제${state === 'correct' ? ' · 정답' : state === 'wrong' ? ' · 오답' : state ? ' · 답함' : ''}${mark ? ' · 수정·삭제 예정' : ''}`}
+                  disabled={busy}
+                  onClick={() => void go(i)}
+                >
+                  {i + 1}
+                </button>
+              );
+            })}
+          </nav>
+        )}
+        {report && flagged && (
           <form
             className="report-form"
             onSubmit={(e) => {
               e.preventDefault();
               void perform(
-                (r) => r.updateQuestion(q.id, { report: reportText }),
-                '문제에 오류 메모를 남겼어요.',
+                (r) => r.updateQuestion(q.id, { report: reportText.trim() || FLAG_DEFAULT }),
+                '메모를 저장했어요.',
               ).then((ok) => {
                 if (ok) setReport(false);
               });
             }}
           >
             <input
-              aria-label="오류 메모"
-              placeholder="오류 내용을 적어 주세요. 나의 문제에 메모로 저장돼요."
+              aria-label="수정·삭제 메모"
+              placeholder={
+                entry?.report && entry.report !== FLAG_DEFAULT
+                  ? entry.report
+                  : '무엇을 고칠지 적어 두면 나중에 고칠 때 편해요(선택)'
+              }
               value={reportText}
-              required
               onChange={(e) => setReportText(e.target.value)}
             />
             <button className="button secondary" disabled={busy}>
-              저장
+              메모 저장
+            </button>
+            <button
+              type="button"
+              className="text-link"
+              disabled={busy}
+              onClick={() =>
+                void perform(
+                  (r) => r.updateQuestion(q.id, { report: '' }),
+                  '수정·삭제 예정 표시를 해제했어요.',
+                ).then((ok) => ok && setReport(false))
+              }
+            >
+              표시 해제
             </button>
           </form>
         )}
@@ -527,6 +628,7 @@ function QuestionPlayer({
             </>
           ) : graded ? (
             <>
+              {prevButton}
               <span className="muted">
                 <CheckCircle2 size={16} />
                 {privateStudy ? '무기록 학습' : '학습 기록을 저장했어요'}
@@ -544,6 +646,7 @@ function QuestionPlayer({
             </>
           ) : (
             <>
+              {prevButton}
               <span className="muted">
                 <Clock3 size={16} />
                 천천히 생각해도 괜찮아요

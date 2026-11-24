@@ -163,7 +163,7 @@ export interface Filters {
   units: { subject: string; unit: string }[];
   type: string;
   difficulty: string;
-  scope: 'all' | 'wrong' | 'due' | 'favorite';
+  scope: 'all' | 'wrong' | 'due' | 'favorite' | 'flagged';
   search: string;
 }
 export const emptyFilters: Filters = {
@@ -196,3 +196,6 @@ export const currentQuestions = (d: AppData) =>
     });
 export const getQuestion = (d: AppData, ref: QuestionRef) =>
   d.versions.find((v) => v.question.id === ref.id && v.question.version === ref.version)?.question;
+
+/** 풀이 중 '수정·삭제 예정'으로 표시한 문제의 기본 메모(문제 메모 칸에 저장). */
+export const FLAG_DEFAULT = '수정·삭제 예정';
