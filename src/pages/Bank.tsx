@@ -9,6 +9,7 @@ import { RichText, Statements } from '../components/RichText';
 import { modelAnswers } from '../domain/grading';
 import { QuestionFilters } from '../components/QuestionFilters';
 import { SharedBanks } from '../components/SharedBanks';
+import { QuestionTools } from '../components/QuestionTools';
 import { Empty, Modal, subjectColor } from '../components/ui';
 export function Bank({
   upload,
@@ -43,6 +44,7 @@ export function Bank({
         </button>
       </div>
       <SharedBanks />
+      <QuestionTools upload={upload} />
       <ManageCards
         title="문제 세트"
         items={d.banks.map((b) => ({
@@ -186,7 +188,9 @@ export function Bank({
             {detail.version}
           </small>
           {d.entries.find((e) => e.id === detail.id)?.report && (
-            <p className="notice">오류 메모: {d.entries.find((e) => e.id === detail.id)?.report}</p>
+            <p className="notice">
+              수정·삭제 예정 · 메모: {d.entries.find((e) => e.id === detail.id)?.report}
+            </p>
           )}
           <div className="modal-actions">
             <button
