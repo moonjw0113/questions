@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Upload, FileJson, CheckCircle2, AlertCircle, Clipboard, Download } from 'lucide-react';
 import { useApp } from '../state/AppContext';
 import { inspectImport, parseBank } from '../domain/import';
-import { typeLabels } from '../domain/types';
+import { typeLabels, type QuestionBank } from '../domain/types';
+import type { Repository } from '../data/repository';
 import { Modal } from './ui';
 export function ImportModal({ onClose }: { onClose: () => void }) {
   const { data, perform, busy, notify } = useApp(),
@@ -11,7 +12,8 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
     [filename, setFilename] = useState(''),
     [drag, setDrag] = useState(false),
     [readError, setReadError] = useState(''),
-    [batch, setBatch] = useState<{ name: string; text: string }[]>([]);
+    [batch, setBatch] = useState<{ name: string; text: string }[]>([]),
+    [removeMissing, setRemoveMissing] = useState(false);
   const parsed = useMemo(() => (text ? parseBank(text) : { errors: [] }), [text]);
   const preview = parsed.bank && data ? inspectImport(parsed.bank, data) : null;
   const errors = [...parsed.errors, ...(preview?.errors || []), ...(readError ? [readError] : [])];
@@ -25,6 +27,23 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
       ? inspectImport(item.bank, data).errors.map((error) => `${item.name}: ${error}`)
       : []),
   ]);
+  // 같은 세트 ID로 다시 가져올 때, 새 파일에 없는 기존 문제(세트 업데이트에서 빠진 문제)
+  const missingIn = (bank?: QuestionBank) => {
+    if (!bank || !data) return [];
+    const keep = new Set(bank.questions.map((q) => q.id));
+    return data.entries.filter(
+      (e) => e.bankId === bank.bank.id && !keep.has(e.id.slice(bank.bank.id.length + 2)),
+    );
+  };
+  const banksToSave = batch.length ? batchParsed.map((item) => item.bank) : [parsed.bank];
+  const missingTotal = banksToSave.reduce((n, bank) => n + missingIn(bank).length, 0);
+  async function removeMissingFrom(r: Repository, bank: QuestionBank) {
+    if (!removeMissing || !missingIn(bank).length) return 0;
+    return r.removeMissing(
+      bank.bank.id,
+      bank.questions.map((q) => q.id),
+    );
+  }
   async function readFiles(files: FileList) {
     const selected = Array.from(files);
     if (selected.length <= 1) {
@@ -70,13 +89,15 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
       const ok = await perform(async (r) => {
         let added = 0,
           updated = 0,
-          skipped = 0;
+          skipped = 0,
+          removed = 0;
         for (const item of batchParsed) {
           try {
             const result = await r.importBank(item.bank!);
             added += result.added;
             updated += result.updated;
             skipped += result.skipped;
+            removed += await removeMissingFrom(r, item.bank!);
             completed.push(item.name);
           } catch (e) {
             throw new Error(
@@ -85,7 +106,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
           }
         }
         notify(
-          `파일 ${completed.length}개 저장 · 새 문제 ${added}개 · 새 버전 ${updated}개 · 중복 제외 ${skipped}개`,
+          `파일 ${completed.length}개 저장 · 새 문제 ${added}개 · 새 버전 ${updated}개 · 중복 제외 ${skipped}개${removed ? ` · 빠진 문제 삭제 ${removed}개` : ''}`,
         );
       });
       if (ok) onClose();
@@ -94,8 +115,9 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
     if (!parsed.bank || errors.length) return;
     const ok = await perform(async (r) => {
       const result = await r.importBank(parsed.bank!);
+      const removed = await removeMissingFrom(r, parsed.bank!);
       notify(
-        `새 문제 ${result.added}개 · 새 버전 ${result.updated}개 · 중복 제외 ${result.skipped}개`,
+        `새 문제 ${result.added}개 · 새 버전 ${result.updated}개 · 중복 제외 ${result.skipped}개${removed ? ` · 빠진 문제 삭제 ${removed}개` : ''}`,
       );
     });
     if (ok) onClose();
@@ -268,6 +290,22 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
             </div>
           </details>
         </div>
+      )}
+      {missingTotal > 0 && (
+        <label className="check-row remove-missing">
+          <input
+            type="checkbox"
+            checked={removeMissing}
+            onChange={(e) => setRemoveMissing(e.target.checked)}
+          />
+          <span>
+            이 파일에 없는 기존 문제 {missingTotal}개도 지우기
+            <small>
+              문제를 합치거나 쪼개서 세트를 새로 정리할 때 켜세요. 그 문제의 풀이 기록도 지워지고,
+              이 세트를 보냈다면 받은 사람의 사본에서도 지워져요.
+            </small>
+          </span>
+        </label>
       )}
       <div className="modal-actions">
         <button className="button secondary" onClick={onClose}>

@@ -74,4 +74,29 @@ begin
  end if;
 end $$;
 revoke all on function public.purge_shared_copies(uuid,text,text) from public,anon,authenticated;
+create or replace function public.push_shared_update(u uuid, p_bank jsonb) returns void
+language plpgsql security definer set search_path='' as $$
+declare r uuid; bid text := p_bank->'bank'->>'id'; qs jsonb; rich boolean; b public.question_banks;
+begin
+ -- 받아 간 사람이 아직 그 세트를 가지고 있으면 같은 내용으로 업데이트한다(풀이 기록은 유지).
+ -- 받은 사람이 세트를 지웠거나 과목·단원이 달라 실패해도 보낸 사람의 저장은 막지 않는다.
+ for r in select distinct recipient_id from public.shared_question_banks where sender_id=u and received_at is not null and bank->'bank'->>'id'=bid and recipient_id<>u loop
+   if exists(select 1 from public.question_banks where user_id=r and id=bid) then
+     begin
+       perform public.import_question_bank_for(r, p_bank);
+     exception when others then null;
+     end;
+   end if;
+ end loop;
+ -- 아직 받지 않은 공유는 최신 내용으로 바꾼다.
+ if exists(select 1 from public.shared_question_banks where sender_id=u and received_at is null and bank->'bank'->>'id'=bid) then
+   select * into b from public.question_banks where user_id=u and id=bid;
+   select jsonb_agg(v.raw order by q.external_id), bool_or(coalesce((v.payload->>'rich')::boolean,false)) into qs, rich from public.questions q join public.question_versions v on v.user_id=q.user_id and v.question_id=q.id and v.version=q.current_version where q.user_id=u and q.bank_id=bid and not q.archived;
+   if qs is not null then
+     update public.shared_question_banks set bank=jsonb_build_object('schema_version',case when rich then '1.1' else '1.0' end,'bank',jsonb_build_object('id',b.id,'title',b.title,'subject',b.subject,'unit',b.unit),'questions',qs)
+       where sender_id=u and received_at is null and bank->'bank'->>'id'=bid;
+   end if;
+ end if;
+end $$;
+revoke all on function public.push_shared_update(uuid,jsonb) from public,anon,authenticated;
 commit;

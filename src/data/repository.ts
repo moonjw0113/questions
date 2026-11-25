@@ -21,6 +21,8 @@ export interface ImportResult {
 }
 export interface Repository {
   purgeContent(bank: string, question?: string): Promise<void>;
+  /** 세트 업데이트: keep(문제 ID 목록)에 없는 기존 문제를 지우고 지운 수를 돌려준다. */
+  removeMissing(bank: string, keep: string[]): Promise<number>;
   deleteSession(id: string): Promise<void>;
   load(): Promise<AppData>;
   importBank(bank: QuestionBank): Promise<ImportResult>;
@@ -167,6 +169,14 @@ export class DemoRepository implements Repository {
       return;
     }
     localStorage.setItem(this.key, JSON.stringify(d));
+  }
+  async removeMissing(bank: string, keep: string[]) {
+    const ids = this.read()
+      .entries.filter((e) => e.bankId === bank && !keep.includes(e.id.slice(bank.length + 2)))
+      .map((e) => e.id);
+    if (!keep.length) throw Error('남길 문제 목록이 필요합니다');
+    for (const id of ids) await this.purgeContent(bank, id);
+    return ids.length;
   }
   async purgeContent(bank: string, question?: string) {
     const d = this.read();
@@ -432,6 +442,9 @@ async function rpc(name: string, params: Record<string, unknown>) {
   return data;
 }
 export class SupabaseRepository implements Repository {
+  async removeMissing(bank: string, keep: string[]) {
+    return Number(await rpc('remove_missing_questions', { p_bank: bank, p_keep: keep }));
+  }
   async purgeContent(bank: string, question?: string) {
     await rpc('purge_study_content', { p_bank: bank, p_question: question ?? null });
   }

@@ -51,6 +51,8 @@ function fakeDb() {
   const callDb: CallDb = async (t, action, args) => {
     calls.push({ token: t, action, args });
     if (action === 'load') return structuredClone(data);
+    if (action === 'remove_missing') return 2;
+    if (action === 'purge') return 1;
     return { added: 1, updated: 0, skipped: 0 };
   };
   return { calls, handler: createMcpHandler(callDb) };
@@ -101,6 +103,7 @@ describe('Claude 커넥터(MCP)', () => {
       'list_question_banks',
       'get_question_bank',
       'import_question_bank',
+      'delete_questions',
       'get_study_result',
     ]);
     expect((await rpc(handler, 'nope')).error.code).toBe(-32601);
@@ -140,6 +143,43 @@ describe('Claude 커넥터(MCP)', () => {
     expect(ok.isError).toBeUndefined();
     expect(ok.content[0].text).toContain('새 문제 1개');
     expect(calls.find((c) => c.action === 'import')?.args).toEqual(science);
+  });
+  it('빠진 문제는 요청할 때만 지우고, 지정한 문제를 지울 수 있다', async () => {
+    const { handler, calls } = fakeDb();
+    const partial = structuredClone(science);
+    partial.questions = partial.questions.slice(0, 2);
+    const kept = await call(handler, 'import_question_bank', { bank: partial });
+    expect(kept.content[0].text).toContain('이 파일에 없는 기존 문제 2개');
+    expect(calls.some((c) => c.action === 'remove_missing')).toBe(false);
+    const removed = await call(handler, 'import_question_bank', {
+      bank: partial,
+      remove_missing: true,
+    });
+    expect(removed.content[0].text).toContain('빠진 문제 삭제 2개');
+    expect(calls.find((c) => c.action === 'remove_missing')?.args).toEqual({
+      bank: science.bank.id,
+      keep: partial.questions.map((q) => q.id),
+    });
+    const ids = [science.questions[0].id];
+    const del = await call(handler, 'delete_questions', {
+      bank_id: science.bank.id,
+      question_ids: ids,
+    });
+    expect(del.isError).toBeUndefined();
+    expect(calls.find((c) => c.action === 'purge')?.args).toEqual({
+      bank: science.bank.id,
+      questions: ids,
+    });
+    const unknown = await call(handler, 'delete_questions', {
+      bank_id: science.bank.id,
+      question_ids: ['없는-문제'],
+    });
+    expect(unknown).toMatchObject({ isError: true });
+    expect(calls.filter((c) => c.action === 'purge')).toHaveLength(1);
+    expect(
+      (await call(handler, 'delete_questions', { bank_id: science.bank.id, question_ids: [] }))
+        .isError,
+    ).toBe(true);
   });
   it('study_result는 규격에 맞고, DB 오류는 도구 오류로 알린다', async () => {
     const { handler } = fakeDb();

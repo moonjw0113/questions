@@ -29,6 +29,7 @@ beforeAll(async () => {
   await db.exec(readFileSync('supabase/question-format-1.1.sql', 'utf8'));
   await db.exec(readFileSync('supabase/manual-grading-1.2.sql', 'utf8'));
   await db.exec(readFileSync('supabase/delete-cleanup-1.3.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/set-update-1.4.sql', 'utf8'));
   await db.exec(`insert into public.study_admins(user_id) values ('${user}')`);
   await db.exec(
     `set role authenticated; select set_config('request.jwt.claim.sub','${user}',false);`,
@@ -516,5 +517,128 @@ describe('Supabase PostgreSQL contract', () => {
     expect((await list()).some((x) => x.id === pending)).toBe(false);
     // 받은 사람이 스스로 지우는 것은 보낸 사람에게 영향을 주지 않는다(보낸 사람 쪽은 이미 없음).
     await as(user);
+  });
+  it('updating a shared bank updates recipients, removes missing questions and keeps history', async () => {
+    const as = (who: string) =>
+      db.exec(`select set_config('request.jwt.claim.sub','${who}',false)`);
+    const bank = structuredClone(example);
+    bank.bank = { ...bank.bank, id: 'shared-update', unit: '공유 업데이트 단원' };
+    await rpc('import_question_bank', bank);
+    const share = async () =>
+      (
+        await db.query<{ id: string }>(
+          "select public.share_study_bank('shared-update', 'student@example.com') id",
+        )
+      ).rows[0].id;
+    const received = await share();
+    await as(other);
+    await db.query('select public.receive_shared_study_bank($1::uuid)', [received]);
+    // 받은 사람이 한 문제를 풀어 둔다.
+    let d = await load();
+    const first = d.versions.find(
+      (v) => v.bankId === 'shared-update' && v.question.type === 'short_answer',
+    )!.question;
+    const s = createSession(d, [first], 'learn', 1, { unsolvedOnly: false });
+    const answer = first.type === 'short_answer' ? [first.acceptedAnswers[0]] : [];
+    s.answers[`${first.id}@${first.version}`] = answer;
+    await rpc('commit_study_session', s, [
+      {
+        id: crypto.randomUUID(),
+        questionId: first.id,
+        questionVersion: first.version,
+        answer,
+        durationMs: 10,
+      },
+    ]);
+    await as(user);
+    const pending = await share();
+    // 1) 보낸 사람이 해설 하나를 고쳐 가져오면 받은 사람 사본도 새 버전이 된다.
+    const fixed = structuredClone(bank);
+    const target = fixed.questions.find((q) => q.id === first.sourceId)!;
+    target.explanation += ' (수정됨)';
+    expect(await rpc('import_question_bank', fixed)).toMatchObject({ updated: 1 });
+    await as(other);
+    d = await load();
+    const entry = d.entries.find((e) => e.id === first.id)!;
+    expect(entry.currentVersion).toBe(first.version + 1);
+    expect(
+      d.versions.find(
+        (v) => v.question.id === first.id && v.question.version === entry.currentVersion,
+      )!.question.explanation,
+    ).toContain('(수정됨)');
+    expect(d.attempts.filter((a) => a.questionId === first.id)).toHaveLength(1);
+    await as(user);
+    // 2) 문제 하나를 빼고(합치거나 쪼갠 경우) 빠진 문제를 지운다 → 받은 사람 사본에서도 빠진다.
+    const keep = fixed.questions.filter((q) => q.id !== first.sourceId).map((q) => q.id);
+    expect(
+      (
+        await db.query<{ n: number }>('select public.remove_missing_questions($1,$2::jsonb) n', [
+          'shared-update',
+          JSON.stringify(keep),
+        ])
+      ).rows[0].n,
+    ).toBe(1);
+    await as(other);
+    d = await load();
+    expect(d.entries.some((e) => e.id === first.id)).toBe(false);
+    expect(d.entries.filter((e) => e.bankId === 'shared-update')).toHaveLength(keep.length);
+    // 3) 받은 사람이 세트를 지운 뒤에는 보낸 사람이 고쳐도 되살아나지 않는다.
+    await db.query('select public.purge_study_content($1,null)', ['shared-update']);
+    await as(user);
+    const again = structuredClone(fixed);
+    again.questions = again.questions.filter((q) => keep.includes(q.id));
+    again.questions[0].explanation += ' 다시';
+    await rpc('import_question_bank', again);
+    await as(other);
+    expect((await load()).banks.some((b) => b.id === 'shared-update')).toBe(false);
+    // 대기 중인 공유는 최신 내용(빠진 문제 제외, 고친 해설)으로 바뀌어 있다.
+    const pendingBank = (
+      await db.query<{ r: { id: string; count: number }[] }>(
+        'select public.list_shared_study_banks() r',
+      )
+    ).rows[0].r.find((x) => x.id === pending)!;
+    expect(pendingBank.count).toBe(keep.length);
+    await db.query('select public.receive_shared_study_bank($1::uuid)', [pending]);
+    d = await load();
+    expect(
+      d.versions.some(
+        (v) => v.bankId === 'shared-update' && v.question.explanation.endsWith(' 다시'),
+      ),
+    ).toBe(true);
+    await as(user);
+  });
+  it('the connector can delete questions and remove missing ones', async () => {
+    const token = 'tok_' + 'Q7w'.repeat(12);
+    await db.query('select public.set_connector_token($1)', [token]);
+    const bank = structuredClone(example);
+    bank.bank = { ...bank.bank, id: 'connector-delete', unit: '커넥터 삭제 단원' };
+    await rpc('import_question_bank', bank);
+    const call = async (action: string, args: unknown) => {
+      await db.exec(`set role anon; select set_config('request.jwt.claim.sub','',false);`);
+      try {
+        return (
+          await db.query<{ r: unknown }>('select public.connector_call($1,$2,$3::jsonb) r', [
+            token,
+            action,
+            JSON.stringify(args),
+          ])
+        ).rows[0].r;
+      } finally {
+        await db.exec(
+          `set role authenticated; select set_config('request.jwt.claim.sub','${user}',false);`,
+        );
+      }
+    };
+    const ids = bank.questions.map((q) => q.id);
+    expect(await call('purge', { bank: 'connector-delete', questions: [ids[0]] })).toBe(1);
+    expect(await call('remove_missing', { bank: 'connector-delete', keep: [ids[1]] })).toBe(
+      ids.length - 2,
+    );
+    const left = (await load()).entries.filter((e) => e.bankId === 'connector-delete');
+    expect(left.map((e) => e.id)).toEqual([`connector-delete::${ids[1]}`]);
+    await expect(call('remove_missing', { bank: 'connector-delete', keep: [] })).rejects.toThrow(
+      '남길 문제',
+    );
+    await db.query('select public.revoke_connector_token()');
   });
 });
