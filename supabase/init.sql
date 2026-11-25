@@ -123,8 +123,8 @@ begin
   else raise exception '지원하지 않는 문제 유형'; end if;
 end $$;
 
-create function public.import_question_bank(p_bank jsonb) returns jsonb language plpgsql security definer set search_path = '' as $$
-declare u uuid := auth.uid(); b jsonb := p_bank->'bank'; q jsonb; k text; item public.questions; ver integer; payload jsonb; extra jsonb; added integer:=0; updated integer:=0; skipped integer:=0; fmt text := p_bank->>'schema_version'; rich boolean := p_bank->>'schema_version' = '1.1';
+create function public.import_question_bank_for(u uuid, p_bank jsonb) returns jsonb language plpgsql security definer set search_path = '' as $$
+declare b jsonb := p_bank->'bank'; q jsonb; k text; item public.questions; ver integer; payload jsonb; extra jsonb; added integer:=0; updated integer:=0; skipped integer:=0; fmt text := p_bank->>'schema_version'; rich boolean := p_bank->>'schema_version' = '1.1';
 begin
   if u is null then raise exception '로그인 필요'; end if;
   perform pg_advisory_xact_lock(hashtextextended(u::text,0));
@@ -160,6 +160,31 @@ begin
   end loop;
   return jsonb_build_object('added',added,'updated',updated,'skipped',skipped);
 end $$;
+create or replace function public.import_question_bank(p_bank jsonb) returns jsonb language plpgsql security definer set search_path = '' as $$
+declare result jsonb;
+begin
+  result := public.import_question_bank_for(auth.uid(), p_bank);
+  -- 관리자 공유를 설치했다면, 이 세트를 받아 간 사람의 사본에도 바로 반영한다.
+  if to_regprocedure('public.push_shared_update(uuid,jsonb)') is not null then
+    execute 'select public.push_shared_update($1,$2)' using auth.uid(), p_bank;
+  end if;
+  return result;
+end $$;
+-- 세트 업데이트: 새 파일(p_keep: 남길 문제 ID 목록)에 없는 기존 문제를 지운다. 받은 사람의 사본에서도 지운다.
+create or replace function public.remove_missing_questions(p_bank text, p_keep jsonb) returns integer language plpgsql security definer set search_path = '' as $$
+declare u uuid := auth.uid(); k text; n integer := 0;
+begin
+  if u is null then raise exception '로그인 필요'; end if;
+  if jsonb_typeof(p_keep) is distinct from 'array' or jsonb_array_length(p_keep) = 0 then raise exception '남길 문제 목록이 필요합니다'; end if;
+  for k in select key from public.questions where user_id=u and bank_id=p_bank and not (to_jsonb(external_id) <@ p_keep) loop
+    perform public.purge_study_content(p_bank, k);
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.remove_missing_questions(text,jsonb) from public, anon;
+grant execute on function public.remove_missing_questions(text,jsonb) to authenticated;
+revoke all on function public.import_question_bank_for(uuid,jsonb) from public, anon, authenticated;
 
 create function public.grade_study_answer(q jsonb, a jsonb) returns jsonb language plpgsql immutable set search_path = '' as $$
 declare results jsonb := '[]'; ok boolean; b jsonb; i integer:=0; score numeric;
@@ -455,6 +480,11 @@ begin
   perform set_config('request.jwt.claim.sub', u::text, true);
   if p_action='load' then return public.load_study_data();
   elsif p_action='import' then return public.import_question_bank(p_args);
+  elsif p_action='remove_missing' then return to_jsonb(public.remove_missing_questions(p_args->>'bank', p_args->'keep'));
+  elsif p_action='purge' then
+    if jsonb_typeof(p_args->'questions') is distinct from 'array' then raise exception '지울 문제 목록이 필요합니다'; end if;
+    perform public.purge_study_content(p_args->>'bank', (p_args->>'bank')||'::'||(x#>>'{}')) from jsonb_array_elements(p_args->'questions') x;
+    return to_jsonb(jsonb_array_length(p_args->'questions'));
   else raise exception '알 수 없는 커넥터 작업: %', p_action; end if;
 end $$;
 

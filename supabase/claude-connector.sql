@@ -48,6 +48,11 @@ begin
   perform set_config('request.jwt.claim.sub', u::text, true);
   if p_action='load' then return public.load_study_data();
   elsif p_action='import' then return public.import_question_bank(p_args);
+  elsif p_action='remove_missing' then return to_jsonb(public.remove_missing_questions(p_args->>'bank', p_args->'keep'));
+  elsif p_action='purge' then
+    if jsonb_typeof(p_args->'questions') is distinct from 'array' then raise exception '지울 문제 목록이 필요합니다'; end if;
+    perform public.purge_study_content(p_args->>'bank', (p_args->>'bank')||'::'||(x#>>'{}')) from jsonb_array_elements(p_args->'questions') x;
+    return to_jsonb(jsonb_array_length(p_args->'questions'));
   else raise exception '알 수 없는 커넥터 작업: %', p_action; end if;
 end $$;
 
