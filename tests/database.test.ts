@@ -28,6 +28,7 @@ beforeAll(async () => {
   // 기존 DB용 업데이트 SQL도 이미 최신인 DB에 다시 적용해 오류 없이 도는지 확인한다.
   await db.exec(readFileSync('supabase/question-format-1.1.sql', 'utf8'));
   await db.exec(readFileSync('supabase/manual-grading-1.2.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/delete-cleanup-1.3.sql', 'utf8'));
   await db.exec(`insert into public.study_admins(user_id) values ('${user}')`);
   await db.exec(
     `set role authenticated; select set_config('request.jwt.claim.sub','${user}',false);`,
@@ -441,5 +442,79 @@ describe('Supabase PostgreSQL contract', () => {
     expect(after.banks.some((b) => b.id === example.bank.id)).toBe(false);
     expect(after.entries.some((e) => e.bankId === example.bank.id)).toBe(false);
     expect(after.attempts.some((a) => a.questionId.startsWith(example.bank.id + '::'))).toBe(false);
+  });
+  it('removes units and subjects left empty by a deleted bank, keeps shared ones', async () => {
+    const make = (id: string, unit: string) => {
+      const b = structuredClone(example);
+      b.bank = { id, title: id, subject: '정리과목', unit };
+      return b;
+    };
+    await rpc('import_question_bank', make('tidy-a', '단원1'));
+    await rpc('import_question_bank', make('tidy-b', '단원2'));
+    await rpc('import_question_bank', make('tidy-c', '단원2'));
+    const units = async () => (await load()).subjects.find((s) => s.name === '정리과목')?.units;
+    await db.query('select public.purge_study_content($1,null)', ['tidy-a']);
+    expect(await units()).toEqual(['단원2']);
+    // 같은 단원을 쓰는 세트가 남아 있으면 단원은 그대로다.
+    await db.query('select public.purge_study_content($1,null)', ['tidy-b']);
+    expect(await units()).toEqual(['단원2']);
+    // 문제 하나만 지우면 세트·단원은 남는다.
+    const key = (await load()).entries.find((e) => e.bankId === 'tidy-c')!.id;
+    await db.query('select public.purge_study_content($1,$2)', ['tidy-c', key]);
+    expect(await units()).toEqual(['단원2']);
+    await db.query('select public.purge_study_content($1,null)', ['tidy-c']);
+    expect(await units()).toBeUndefined();
+  });
+  it("deleting a shared bank or question also deletes recipients' copies", async () => {
+    const bank = structuredClone(example);
+    bank.bank = { ...bank.bank, id: 'shared-purge', unit: '공유 삭제 단원' };
+    await rpc('import_question_bank', bank);
+    const share = async () =>
+      (
+        await db.query<{ id: string }>(
+          "select public.share_study_bank('shared-purge', 'student@example.com') id",
+        )
+      ).rows[0].id;
+    const received = await share();
+    const as = (who: string) =>
+      db.exec(`select set_config('request.jwt.claim.sub','${who}',false)`);
+    await as(other);
+    await db.query('select public.receive_shared_study_bank($1::uuid)', [received]);
+    const guestEntries = async () =>
+      (await load()).entries.filter((e) => e.bankId === 'shared-purge').map((e) => e.id);
+    const before = await guestEntries();
+    expect(before).toHaveLength(bank.questions.length);
+    // 받은 사람이 푼 기록이 있어도 함께 지워진다.
+    let d = await load();
+    const q = d.versions.find((v) => v.question.id === before[0])!.question;
+    const s = createSession(d, [q], 'learn', 1, { unsolvedOnly: false });
+    await rpc('commit_study_session', s, []);
+    // 아직 받지 않은 공유도 하나 만든다.
+    await as(user);
+    const pending = await share();
+    expect(pending).not.toBe(received);
+    // 관리자가 문제 하나를 지운다 → 받은 사람의 그 문제와 대기 중 공유의 그 문제가 빠진다.
+    await db.query('select public.purge_study_content($1,$2)', ['shared-purge', before[0]]);
+    await as(other);
+    expect(await guestEntries()).toEqual(before.slice(1));
+    d = await load();
+    expect(d.sessions.some((x) => x.id === s.id)).toBe(false);
+    const list = async () =>
+      (
+        await db.query<{ r: { id: string; count: number }[] }>(
+          'select public.list_shared_study_banks() r',
+        )
+      ).rows[0].r;
+    expect((await list()).find((x) => x.id === pending)?.count).toBe(bank.questions.length - 1);
+    // 세트를 통째로 지우면 받은 사람의 세트·단원과 대기 중 공유도 사라진다.
+    await as(user);
+    await db.query('select public.purge_study_content($1,null)', ['shared-purge']);
+    await as(other);
+    d = await load();
+    expect(d.banks.some((b) => b.id === 'shared-purge')).toBe(false);
+    expect(d.subjects.flatMap((x) => x.units)).not.toContain('공유 삭제 단원');
+    expect((await list()).some((x) => x.id === pending)).toBe(false);
+    // 받은 사람이 스스로 지우는 것은 보낸 사람에게 영향을 주지 않는다(보낸 사람 쪽은 이미 없음).
+    await as(user);
   });
 });
