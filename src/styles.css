@@ -5347,3 +5347,17 @@ strong {
 .notice.error {
   color: var(--red);
 }
+
+/* 가져오기 · 빠진 문제 지우기 */
+.remove-missing {
+  align-items: flex-start;
+}
+.remove-missing span {
+  display: grid;
+  gap: 3px;
+}
+.remove-missing small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}

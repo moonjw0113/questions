@@ -37,3 +37,17 @@ describe('체험 저장소 세트 삭제', () => {
     expect(await units()).toBeUndefined();
   });
 });
+
+describe('체험 저장소 세트 업데이트', () => {
+  it('새 파일에 없는 문제만 지우고 나머지는 그대로 둔다', async () => {
+    const repo = new DemoRepository();
+    const bank = structuredClone(example);
+    bank.bank.id = 'update-bank';
+    await repo.importBank(bank);
+    const keep = bank.questions.slice(0, 2).map((q) => q.id);
+    expect(await repo.removeMissing('update-bank', keep)).toBe(bank.questions.length - 2);
+    const left = (await repo.load()).entries.filter((e) => e.bankId === 'update-bank');
+    expect(left.map((e) => e.id).sort()).toEqual(keep.map((id) => `update-bank::${id}`).sort());
+    await expect(repo.removeMissing('update-bank', [])).rejects.toThrow('남길 문제');
+  });
+});
