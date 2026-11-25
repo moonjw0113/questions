@@ -40,17 +40,31 @@ export function Study({
   if (!d) return null;
   if (temporary && snapshot) {
     const refresh = async () => setSnapshot(await temporary.load());
+    // 무기록 학습이라도 문제 자체에 대한 표시(수정·삭제 예정, 즐겨찾기)는 내 문제은행에 저장한다.
+    // 답안·결과만 기록하지 않는다.
+    const practiceRepo = new Proxy(temporary, {
+      get(target, prop, receiver) {
+        if (prop === 'updateQuestion')
+          return async (...args: Parameters<DemoRepository['updateQuestion']>) => {
+            await app.repo.updateQuestion(...args);
+            await target.updateQuestion(...args);
+            void app.refresh().catch(() => {});
+          };
+        const value = Reflect.get(target, prop, receiver);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
     return (
       <Context.Provider
         value={{
           ...app,
           privateStudy: true,
           data: snapshot,
-          repo: temporary,
+          repo: practiceRepo,
           refresh,
           perform: async (action) => {
             try {
-              await action(temporary);
+              await action(practiceRepo);
               await refresh();
               return true;
             } catch (e) {

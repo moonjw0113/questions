@@ -56,4 +56,22 @@ begin
 end $$;
 revoke all on function public.study_is_admin(), public.share_study_bank(text,text), public.list_shared_study_banks(), public.receive_shared_study_bank(uuid) from public, anon, authenticated;
 grant execute on function public.study_is_admin(), public.share_study_bank(text,text), public.list_shared_study_banks(), public.receive_shared_study_bank(uuid) to authenticated;
+create or replace function public.purge_shared_copies(u uuid,p_bank text,p_question text default null) returns void
+language plpgsql security definer set search_path='' as $$
+declare r uuid; ext text:=case when p_question is null then null else substr(p_question,length(p_bank)+3) end;
+begin
+ -- 보낸 세트를 받아 간 사람의 사본(풀이 기록 포함)을 지운다.
+ for r in select distinct recipient_id from public.shared_question_banks where sender_id=u and received_at is not null and bank->'bank'->>'id'=p_bank and recipient_id<>u loop
+   perform public.purge_study_content_for(r,p_bank,p_question);
+ end loop;
+ -- 아직 받지 않은 공유는 세트째 취소하거나 지운 문제만 뺀다.
+ if p_question is null then
+   delete from public.shared_question_banks where sender_id=u and received_at is null and bank->'bank'->>'id'=p_bank;
+ else
+   update public.shared_question_banks set bank=jsonb_set(bank,'{questions}',coalesce((select jsonb_agg(x) from jsonb_array_elements(bank->'questions') x where x->>'id' is distinct from ext),'[]'::jsonb))
+     where sender_id=u and received_at is null and bank->'bank'->>'id'=p_bank;
+   delete from public.shared_question_banks where sender_id=u and received_at is null and bank->'bank'->>'id'=p_bank and jsonb_array_length(bank->'questions')=0;
+ end if;
+end $$;
+revoke all on function public.purge_shared_copies(uuid,text,text) from public,anon,authenticated;
 commit;

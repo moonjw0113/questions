@@ -364,11 +364,10 @@ revoke all on function public.delete_study_session(uuid) from public,anon;
 grant execute on function public.delete_study_session(uuid) to authenticated;
 commit;
 begin;
-create or replace function public.purge_study_content(p_bank text,p_question text default null) returns void
+create or replace function public.purge_study_content_for(u uuid,p_bank text,p_question text default null) returns void
 language plpgsql security definer set search_path='' as $$
-declare u uuid:=auth.uid(); ids uuid[]; keys text[]; s public.study_sessions; queue jsonb; idx int; st jsonb; field text;
+declare ids uuid[]; keys text[]; s public.study_sessions; queue jsonb; idx int; st jsonb; field text; b public.question_banks;
 begin
- if u is null then raise exception '로그인 필요'; end if;
  perform pg_advisory_xact_lock(hashtextextended(u::text,0));
  select array_agg(id),array_agg(key) into ids,keys from public.questions where user_id=u and bank_id=p_bank and (p_question is null or key=p_question);
  delete from public.answer_attempts where user_id=u and question_id=any(ids);
@@ -385,8 +384,26 @@ begin
  end loop;
  delete from public.question_versions where user_id=u and question_id=any(ids);
  delete from public.questions where user_id=u and id=any(ids);
- delete from public.question_banks b where b.user_id=u and b.id=p_bank and not exists(select 1 from public.questions q where q.user_id=u and q.bank_id=b.id);
+ select * into b from public.question_banks where user_id=u and id=p_bank;
+ delete from public.question_banks x where x.user_id=u and x.id=p_bank and not exists(select 1 from public.questions q where q.user_id=u and q.bank_id=x.id);
+ -- 세트가 지워져 비게 된 단원과 과목도 함께 정리한다(학습 범위에 0문제 단원이 남지 않게).
+ if b.id is not null and not exists(select 1 from public.question_banks where user_id=u and id=p_bank) then
+   delete from public.units n where n.user_id=u and n.subject=b.subject and n.name=b.unit and not exists(select 1 from public.question_banks x where x.user_id=u and x.subject=b.subject and x.unit=b.unit);
+   delete from public.subjects j where j.user_id=u and j.name=b.subject and not exists(select 1 from public.units n where n.user_id=u and n.subject=b.subject);
+ end if;
 end $$;
+create or replace function public.purge_study_content(p_bank text,p_question text default null) returns void
+language plpgsql security definer set search_path='' as $$
+declare u uuid:=auth.uid();
+begin
+ if u is null then raise exception '로그인 필요'; end if;
+ perform public.purge_study_content_for(u,p_bank,p_question);
+ -- 관리자 공유를 설치했다면, 이 세트·문제를 받아 간 사람의 사본도 함께 지운다.
+ if to_regprocedure('public.purge_shared_copies(uuid,text,text)') is not null then
+   execute 'select public.purge_shared_copies($1,$2,$3)' using u,p_bank,p_question;
+ end if;
+end $$;
+revoke all on function public.purge_study_content_for(uuid,text,text) from public,anon,authenticated;
 revoke all on function public.purge_study_content(text,text) from public,anon;
 grant execute on function public.purge_study_content(text,text) to authenticated;
 commit;

@@ -32,8 +32,19 @@ export function QuestionFilters({
     };
   }, []);
   const patch = (p: Partial<Filters>) => onChange({ ...f, ...p });
-  const subjects =
-    d?.subjects.filter((s) => (!f.subject || s.name === f.subject) && s.units.length) || [];
+  // 문제가 하나도 없는 과목·단원(세트를 지워 비게 된 것 등)은 고를 수 없게 숨긴다.
+  const filled = new Set(
+    d?.entries
+      .filter((e) => !e.archived)
+      .map((e) => d.banks.find((b) => b.id === e.bankId))
+      .filter(Boolean)
+      .map((b) => `${b!.subject}\u0000${b!.unit}`) || [],
+  );
+  const withQuestions =
+    d?.subjects
+      .map((s) => ({ ...s, units: s.units.filter((u) => filled.has(`${s.name}\u0000${u}`)) }))
+      .filter((s) => s.units.length) || [];
+  const subjects = withQuestions.filter((s) => !f.subject || s.name === f.subject);
   const toggleUnit = (subject: string, unit: string) => {
     const selected = f.units.some((item) => item.subject === subject && item.unit === unit);
     patch({
@@ -60,7 +71,7 @@ export function QuestionFilters({
           과목
           <select value={f.subject} onChange={(e) => patch({ subject: e.target.value, units: [] })}>
             <option value="">전체 과목</option>
-            {d?.subjects.map((s) => (
+            {withQuestions.map((s) => (
               <option key={s.name}>{s.name}</option>
             ))}
           </select>

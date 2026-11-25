@@ -200,8 +200,8 @@ ${files()
       {deleting && (
         <Modal title={`${ids.size}문제를 삭제할까요?`} onClose={() => setDeleting(false)}>
           <p className="notice">
-            선택한 문제와 그 문제의 풀이 기록이 영구 삭제되고 통계와 복습 일정에서도 빠져요. 되돌릴
-            수 없어요.
+            선택한 문제와 그 문제의 풀이 기록이 영구 삭제되고 통계와 복습 일정에서도 빠져요. 이
+            문제를 보냈다면 받은 사람의 사본에서도 삭제돼요. 되돌릴 수 없어요.
           </p>
           <div className="modal-actions">
             <button className="button secondary" onClick={() => setDeleting(false)}>

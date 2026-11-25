@@ -178,7 +178,17 @@ export class DemoRepository implements Repository {
     d.entries = d.entries.filter((e) => !ids.has(e.id));
     d.versions = d.versions.filter((v) => !ids.has(v.question.id));
     d.attempts = d.attempts.filter((a) => !ids.has(a.questionId));
-    if (!d.entries.some((e) => e.bankId === bank)) d.banks = d.banks.filter((b) => b.id !== bank);
+    const removed = d.banks.find((b) => b.id === bank);
+    if (removed && !d.entries.some((e) => e.bankId === bank)) {
+      d.banks = d.banks.filter((b) => b.id !== bank);
+      // 세트를 지워 비게 된 단원과 과목도 정리한다.
+      if (!d.banks.some((b) => b.subject === removed.subject && b.unit === removed.unit)) {
+        const s = d.subjects.find((x) => x.name === removed.subject);
+        if (s) s.units = s.units.filter((u) => u !== removed.unit);
+        if (s && !s.units.length && !d.banks.some((b) => b.subject === removed.subject))
+          d.subjects = d.subjects.filter((x) => x !== s);
+      }
+    }
     for (const s of d.sessions) {
       if (!s.queue.some((q) => ids.has(q.id))) continue;
       const index = s.queue.slice(0, s.index).filter((q) => !ids.has(q.id)).length;

@@ -65,7 +65,7 @@ export function Bank({
         }}
         remove={(r, id) => r.purgeContent(id)}
         action="세트 영구 삭제"
-        warning="세트와 해당 문제의 풀이 기록을 영구 삭제합니다. 이미 보낸 사본은 유지됩니다."
+        warning="세트와 해당 문제의 풀이 기록을 영구 삭제합니다. 이 세트를 보냈다면 받은 사람의 사본도 함께 삭제됩니다."
       />
       <section className="panel bank-content">
         <QuestionFilters
@@ -211,7 +211,10 @@ export function Bank({
       {edit && <EditQuestion question={edit} onClose={() => setEdit(null)} />}
       {deleting && (
         <Modal title="문제를 삭제할까요?" onClose={() => setDeleting(null)}>
-          <p>문제와 해당 풀이 기록을 영구 삭제합니다. 세트의 마지막 문제라면 세트도 삭제됩니다.</p>
+          <p>
+            문제와 해당 풀이 기록을 영구 삭제합니다. 세트의 마지막 문제라면 세트도 삭제됩니다. 이
+            문제를 보냈다면 받은 사람의 사본에서도 삭제됩니다.
+          </p>
           <div className="modal-actions">
             <button className="button secondary" onClick={() => setDeleting(null)}>
               취소
