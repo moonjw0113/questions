@@ -51,3 +51,21 @@ describe('체험 저장소 세트 업데이트', () => {
     await expect(repo.removeMissing('update-bank', [])).rejects.toThrow('남길 문제');
   });
 });
+
+describe('고쳐진 문제의 수정·삭제 예정 표시', () => {
+  it('새 버전으로 저장되면 표시가 풀리고, 내용이 같으면 그대로다', async () => {
+    const repo = new DemoRepository();
+    const bank = structuredClone(example);
+    bank.bank.id = 'flag-bank';
+    await repo.importBank(bank);
+    const [a, b] = bank.questions.map((q) => `flag-bank::${q.id}`);
+    await repo.updateQuestion(a, { report: '수정·삭제 예정' });
+    await repo.updateQuestion(b, { report: '해설 확인' });
+    const fixed = structuredClone(bank);
+    fixed.questions[0].explanation += ' (고침)';
+    await repo.importBank(fixed);
+    const entries = (await repo.load()).entries;
+    expect(entries.find((e) => e.id === a)?.report).toBe('');
+    expect(entries.find((e) => e.id === b)?.report).toBe('해설 확인');
+  });
+});
