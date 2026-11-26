@@ -245,8 +245,11 @@ export class DemoRepository implements Repository {
       const e = d.entries.find((e) => e.id === q.id);
       if (!d.versions.some((v) => v.question.id === q.id && v.question.version === q.version))
         d.versions.push({ bankId: bank.bank.id, question: q });
-      if (e) e.currentVersion = Math.max(e.currentVersion, q.version);
-      else
+      if (e) {
+        // 고쳐진 문제(새 버전)는 '수정·삭제 예정' 표시를 푼다.
+        if (q.version > e.currentVersion) e.report = '';
+        e.currentVersion = Math.max(e.currentVersion, q.version);
+      } else
         d.entries.push({
           id: q.id,
           bankId: bank.bank.id,

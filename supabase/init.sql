@@ -156,7 +156,8 @@ begin
       || case when rich then jsonb_build_object('rich',true) else '{}'::jsonb end
       || case when q ? 'statements' then jsonb_build_object('statements',q->'statements') else '{}'::jsonb end;
     insert into public.question_versions(user_id,question_id,version,raw,payload) values(u,item.id,ver,q,payload);
-    update public.questions set current_version=ver where user_id=u and id=item.id;
+    -- 고쳐진 문제(새 버전)는 '수정·삭제 예정' 표시(report)를 푼다.
+    update public.questions set current_version=ver, report='' where user_id=u and id=item.id;
   end loop;
   return jsonb_build_object('added',added,'updated',updated,'skipped',skipped);
 end $$;

@@ -171,7 +171,7 @@ ${files()
       </div>
       <p className="tools-hint">
         같은 세트 ID·문제 ID로 고친 JSON을 다시 가져오면 새 버전으로 바뀌고 풀이 기록은 그대로예요.
-        다 고친 문제는 표시를 해제해 주세요.
+        이렇게 고쳐진 문제는 이 목록에서 자동으로 빠져요.
       </p>
       <ul className="flagged-list">
         {flagged.map((q) => (

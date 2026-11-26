@@ -30,6 +30,7 @@ beforeAll(async () => {
   await db.exec(readFileSync('supabase/manual-grading-1.2.sql', 'utf8'));
   await db.exec(readFileSync('supabase/delete-cleanup-1.3.sql', 'utf8'));
   await db.exec(readFileSync('supabase/set-update-1.4.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/clear-flag-1.5.sql', 'utf8'));
   await db.exec(`insert into public.study_admins(user_id) values ('${user}')`);
   await db.exec(
     `set role authenticated; select set_config('request.jwt.claim.sub','${user}',false);`,
@@ -517,6 +518,22 @@ describe('Supabase PostgreSQL contract', () => {
     expect((await list()).some((x) => x.id === pending)).toBe(false);
     // 받은 사람이 스스로 지우는 것은 보낸 사람에게 영향을 주지 않는다(보낸 사람 쪽은 이미 없음).
     await as(user);
+  });
+  it('a new version clears the "to fix" flag, an unchanged import keeps it', async () => {
+    const bank = structuredClone(example);
+    bank.bank = { ...bank.bank, id: 'flag-clear', unit: '표시 해제 단원' };
+    await rpc('import_question_bank', bank);
+    const [a, b] = bank.questions.map((q) => `flag-clear::${q.id}`);
+    await db.query("update public.questions set report='수정·삭제 예정' where key = any($1)", [
+      [a, b],
+    ]);
+    const fixed = structuredClone(bank);
+    fixed.questions[0].explanation += ' (고침)';
+    expect(await rpc('import_question_bank', fixed)).toMatchObject({ updated: 1 });
+    const entries = (await load()).entries;
+    expect(entries.find((e) => e.id === a)?.report).toBe('');
+    expect(entries.find((e) => e.id === b)?.report).toBe('수정·삭제 예정');
+    await db.query('select public.purge_study_content($1,null)', ['flag-clear']);
   });
   it('updating a shared bank updates recipients, removes missing questions and keeps history', async () => {
     const as = (who: string) =>
