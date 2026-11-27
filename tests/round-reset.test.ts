@@ -70,6 +70,14 @@ describe('안 푼 문제 카운트와 초기화', () => {
       .sort();
     expect(picked).toEqual(['b', 'c']);
   });
+  it('집중 복습·틀린 문제 다시 풀기로 푼 것은 세지 않는다', () => {
+    const { d, questions } = setup({ a: [day(1)], b: [day(1)] });
+    d.attempts[1] = { ...d.attempts[1], mode: 'review' };
+    expect(Object.fromEntries(roundCounts(d))).toEqual({ a: 1 });
+    expect(ids(unsolvedInRound(d, questions))).toEqual(['b', 'c']);
+    // 풀이 기록 자체는 남아 통계·복습 일정에는 그대로 쓰인다.
+    expect(d.attempts).toHaveLength(2);
+  });
   it('범위 밖 문제는 초기화하지 않는다', () => {
     const { d, questions } = setup({ a: [day(1)], b: [day(1)] });
     d.settings = resetRounds(d, [questions[0]], day(3));

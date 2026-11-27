@@ -51,6 +51,8 @@ export function roundCounts(d: AppData): Map<string, number> {
   const resets = d.settings.roundResets || {};
   const solved = new Map<string, number>();
   for (const a of d.attempts) {
+    // 집중 복습·틀린 문제 다시 풀기(둘 다 review)로 푼 것은 회차 카운트에 넣지 않는다.
+    if (a.mode === 'review') continue;
     const since = resets[a.questionId];
     if (since && Date.parse(a.answeredAt) <= Date.parse(since)) continue;
     solved.set(a.questionId, (solved.get(a.questionId) || 0) + 1);
