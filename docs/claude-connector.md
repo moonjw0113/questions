@@ -15,6 +15,7 @@ Claude 프로젝트 대화 ──MCP──▶ Supabase Edge Function(chagok-mcp)
 | `get_question_format` | 문제 규격(v1.1 스키마)과 출제 규칙을 Claude에게 알려 줌 |
 | `list_question_banks` | 내 과목·단원·문제은행 목록 |
 | `get_question_bank` | 문제은행 하나의 현재 문제(변형 문제 만들 때 참고) |
+| `list_flagged_questions` | 앱에서 "수정·삭제 예정"으로 표시한 문제를 메모와 함께, 바로 고쳐 저장할 수 있는 형식으로 가져옴. 고쳐 저장하면 표시가 자동으로 풀림 |
 | `import_question_bank` | 검사를 통과한 문제만 내 문제은행에 저장. `remove_missing`을 켜면 파일에 없는 기존 문제를 지움 |
 | `delete_questions` | 지정한 문제와 그 풀이 기록을 삭제(문제를 합치거나 쪼갠 뒤 원래 문제 정리) |
 | `get_study_result` | 학습 결과(study_result). 기간·과목·단원으로 좁힐 수 있음 |
@@ -22,6 +23,7 @@ Claude 프로젝트 대화 ──MCP──▶ Supabase Edge Function(chagok-mcp)
 예시:
 - 학습지 사진을 올리고 "이걸로 화학 반응 단원 문제 15개 만들어서 차곡에 넣어 줘"
 - "최근 30일 통계 보고 약한 개념 정리해 줘. 그 개념으로 변형 문제 10개 만들어서 저장해 줘"
+- "수정 목록 가져와서 메모대로 고쳐 줘" (고쳐 저장한 문제는 앱의 수정·삭제 예정 목록에서 자동으로 빠짐)
 
 ## 처음 한 번 설치
 
