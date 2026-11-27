@@ -11,18 +11,18 @@ const science = JSON.parse(
   readFileSync('public/examples/science-v1_1.json', 'utf8'),
 ) as QuestionBank;
 
-function fakeDb() {
+function fakeDb(reports: string[] = []) {
   const bank = normalizeBank(science);
   const data: AppData = {
     subjects: [{ name: science.bank.subject, units: [science.bank.unit] }],
     banks: [{ ...science.bank, createdAt: '2026-11-01T00:00:00.000Z' }],
-    entries: bank.questions.map((q) => ({
+    entries: bank.questions.map((q, i) => ({
       id: q.id,
       bankId: science.bank.id,
       currentVersion: 1,
       favorite: false,
       archived: false,
-      report: '',
+      report: reports[i] || '',
     })),
     versions: bank.questions.map((question) => ({ bankId: science.bank.id, question })),
     attempts: [
@@ -102,6 +102,7 @@ describe('Claude 커넥터(MCP)', () => {
       'get_question_format',
       'list_question_banks',
       'get_question_bank',
+      'list_flagged_questions',
       'import_question_bank',
       'delete_questions',
       'get_study_result',
@@ -143,6 +144,31 @@ describe('Claude 커넥터(MCP)', () => {
     expect(ok.isError).toBeUndefined();
     expect(ok.content[0].text).toContain('새 문제 1개');
     expect(calls.find((c) => c.action === 'import')?.args).toEqual(science);
+  });
+  it('수정·삭제 예정 문제를 메모와 함께, 바로 다시 저장할 수 있는 형식으로 준다', async () => {
+    const empty = await call(fakeDb().handler, 'list_flagged_questions');
+    expect(empty.content[0].text).toContain('표시한 문제가 없어요');
+    const { handler } = fakeDb(['', '수정·삭제 예정', '해설이 교과서와 다름']);
+    const out = (await call(handler, 'list_flagged_questions')).content[0].text;
+    expect(out).toContain('# 수정·삭제 예정 2문제');
+    const [entry] = JSON.parse(out.slice(out.indexOf('\n[')));
+    expect(entry.file.questions.map((q: { id: string }) => q.id).sort()).toEqual(
+      [science.questions[1].id, science.questions[2].id].sort(),
+    );
+    expect(entry.notes).toContainEqual({
+      id: science.questions[2].id,
+      memo: '해설이 교과서와 다름',
+    });
+    expect(entry.notes).toContainEqual({
+      id: science.questions[1].id,
+      memo: '(메모 없음 · 내용 전체 검토)',
+    });
+    // 받은 그대로 다시 저장할 수 있다.
+    const saved = await call(handler, 'import_question_bank', { bank: entry.file });
+    expect(saved.isError).toBeUndefined();
+    expect((await call(handler, 'list_flagged_questions', { bank_id: '없는-세트' })).isError).toBe(
+      true,
+    );
   });
   it('빠진 문제는 요청할 때만 지우고, 지정한 문제를 지울 수 있다', async () => {
     const { handler, calls } = fakeDb();
