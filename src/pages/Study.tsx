@@ -281,6 +281,7 @@ export function Study({
           title={status === 'active' ? '이어서 학습하기' : '완료한 학습 기록'}
           items={d.sessions
             .filter((s) => s.status === status)
+            .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
             .map((s) => ({
               id: s.id,
               title: modeLabels[s.mode],
@@ -293,7 +294,8 @@ export function Study({
             }))}
           selected={status === 'active' ? active : completed}
           onSelect={status === 'active' ? setActive : setCompleted}
-          onOpen={status === 'active' ? onStart : undefined}
+          onOpen={onStart}
+          openLabel={status === 'active' ? '이어풀기' : '기록 보기'}
           remove={(r, id) => r.deleteSession(id)}
           action="기록 삭제"
           warning="선택한 학습의 풀이 기록이 삭제되고 통계와 복습 일정에 반영됩니다."
