@@ -11,6 +11,7 @@ export function ManageCards({
   warning,
   action,
   onOpen,
+  openLabel = '이어풀기',
 }: {
   title: string;
   items: { id: string; title: string; detail: string }[];
@@ -20,6 +21,7 @@ export function ManageCards({
   warning: string;
   action: string;
   onOpen?: (id: string) => void;
+  openLabel?: string;
 }) {
   const { perform, busy } = useApp();
   const [working, setWorking] = useState(false);
@@ -81,7 +83,7 @@ export function ManageCards({
                 </label>
                 {onOpen && (
                   <button className="text-link" onClick={() => onOpen(item.id)}>
-                    이어풀기
+                    {openLabel}
                   </button>
                 )}
               </div>
